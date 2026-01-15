@@ -5,15 +5,660 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ticket Management System</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+        .line-clamp-3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+    </style>
 </head>
 <body>
-    <div id="root"></div>
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script type="text/babel">
-        // Copy the ENTIRE JavaScript code from the artifact above here
+    <div id="root">
+        <div style="display: flex; align-items: center; justify-content: center; min-height: 100vh; background: linear-gradient(to bottom right, #f9fafb, #e5e7eb);">
+            <div style="text-align: center; padding: 2rem;">
+                <h1 style="font-size: 2rem; font-weight: bold; margin-bottom: 1rem;">Loading Ticket System...</h1>
+                <p style="color: #6b7280;">Please wait</p>
+            </div>
+        </div>
+    </div>
+
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+
+    <script>
+        (function() {
+            const { useState, useEffect, createElement: h } = React;
+
+            function App() {
+                const [tickets, setTickets] = useState([]);
+                const [isAddingTicket, setIsAddingTicket] = useState(false);
+                const [editingTicket, setEditingTicket] = useState(null);
+                const [viewingTicket, setViewingTicket] = useState(null);
+                const [searchTerm, setSearchTerm] = useState('');
+                const [filterStatus, setFilterStatus] = useState('all');
+                const [showImportModal, setShowImportModal] = useState(false);
+                const [currentTicket, setCurrentTicket] = useState({
+                    name: '', link: '', details: '', attachments: [], status: 'pending',
+                    date: new Date().toISOString().split('T')[0]
+                });
+
+                useEffect(() => {
+                    try {
+                        const stored = localStorage.getItem('tickets');
+                        if (stored) setTickets(JSON.parse(stored));
+                    } catch (e) { console.log('No tickets'); }
+                }, []);
+
+                const saveTickets = (updated) => {
+                    try {
+                        localStorage.setItem('tickets', JSON.stringify(updated));
+                        setTickets(updated);
+                    } catch (e) { alert('Error saving'); }
+                };
+
+                const addTicket = () => {
+                    if (!currentTicket.name || !currentTicket.details) return alert('Please enter name and details');
+                    saveTickets([...tickets, { ...currentTicket, id: Date.now(), ticketNumber: tickets.length + 1 }]);
+                    setCurrentTicket({ name: '', link: '', details: '', attachments: [], status: 'pending', date: new Date().toISOString().split('T')[0] });
+                    setIsAddingTicket(false);
+                };
+
+                const updateTicket = () => {
+                    saveTickets(tickets.map(t => t.id === editingTicket.id ? editingTicket : t));
+                    setEditingTicket(null);
+                };
+
+                const deleteTicket = (id) => {
+                    if (window.confirm('Delete ticket?')) saveTickets(tickets.filter(t => t.id !== id));
+                };
+
+                const deleteAll = () => {
+                    if (window.confirm('Delete ALL tickets?')) saveTickets([]);
+                };
+
+                const uploadImage = (e, isEdit) => {
+                    Array.from(e.target.files).forEach(file => {
+                        if (file.size > 5000000) return alert('Image too large (max 5MB)');
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                            if (isEdit) setEditingTicket(p => ({ ...p, attachments: [...(p.attachments || []), reader.result] }));
+                            else setCurrentTicket(p => ({ ...p, attachments: [...p.attachments, reader.result] }));
+                        };
+                        reader.readAsDataURL(file);
+                    });
+                };
+
+                const importFile = (e) => {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = (ev) => {
+                        try {
+                            let data = JSON.parse(ev.target.result);
+                            let importedTickets = [];
+                            
+                            // Helper function to safely parse dates
+                            const safeDate = (dateValue) => {
+                                if (!dateValue) return new Date().toISOString().split('T')[0];
+                                if (typeof dateValue === 'number') {
+                                    const date = new Date(dateValue * 1000);
+                                    return isNaN(date.getTime()) ? new Date().toISOString().split('T')[0] : date.toISOString().split('T')[0];
+                                }
+                                if (typeof dateValue === 'string') {
+                                    if (/^\d{4}-\d{2}-\d{2}$/.test(dateValue)) return dateValue;
+                                    const date = new Date(dateValue);
+                                    return isNaN(date.getTime()) ? new Date().toISOString().split('T')[0] : date.toISOString().split('T')[0];
+                                }
+                                return new Date().toISOString().split('T')[0];
+                            };
+                            
+                            // Helper function to extract text from Telegram message array
+                            const extractTelegramText = (textArray) => {
+                                if (typeof textArray === 'string') return textArray;
+                                if (!Array.isArray(textArray)) return '';
+                                
+                                return textArray.map(item => {
+                                    if (typeof item === 'string') return item;
+                                    if (item && item.text) return item.text;
+                                    return '';
+                                }).join('');
+                            };
+                            
+                            // Helper function to parse structured Telegram message
+                            const parseTelegramMessage = (msg) => {
+                                const fullText = extractTelegramText(msg.text);
+                                
+                                // Extract name (after "اسم المشروع او الشركة:" or "name:")
+                                let name = '';
+                                const nameMatch = fullText.match(/(?:اسم المشروع او الشركة|name|Name|الاسم|الشركة)[:\s]+(.+?)(?=\n(?:الروابط|link|Link|الرابط|التفاصيل|detail|http)|$)/is);
+                                if (nameMatch) {
+                                    name = nameMatch[1].trim();
+                                } else {
+                                    // Try to get first meaningful line
+                                    const lines = fullText.split('\n').filter(l => l.trim() && !l.trim().startsWith('#'));
+                                    name = lines[0] ? lines[0].trim().substring(0, 100) : 'Imported Ticket';
+                                }
+                                
+                                // Extract link (look for URLs)
+                                let link = '';
+                                const urlMatch = fullText.match(/(https?:\/\/[^\s\n]+)/i);
+                                if (urlMatch) {
+                                    link = urlMatch[1].trim();
+                                }
+                                
+                                // Extract details (after "التفاصيل:" or "details:")
+                                let details = '';
+                                const detailsMatch = fullText.match(/(?:التفاصيل|detail|Details|تفاصيل)[:\s]+(.+?)$/is);
+                                if (detailsMatch) {
+                                    details = detailsMatch[1].trim();
+                                } else {
+                                    // If no specific details section, use the whole message
+                                    details = fullText.replace(/^#\d+\s*\n?/, '').trim();
+                                }
+                                
+                                // Extract images/attachments
+                                const attachments = [];
+                                if (msg.photo) attachments.push(msg.photo);
+                                if (msg.file) attachments.push(msg.file);
+                                if (msg.media_type === 'photo' && msg.photo) attachments.push(msg.photo);
+                                
+                                return {
+                                    name: name || 'Imported Ticket',
+                                    link: link,
+                                    details: details || fullText,
+                                    attachments: attachments,
+                                    status: 'pending',
+                                    date: safeDate(msg.date || msg.timestamp)
+                                };
+                            };
+                            
+                            // Handle array of tickets (direct export from this system)
+                            if (Array.isArray(data)) {
+                                importedTickets = data.map(item => ({
+                                    name: item.name || 'Untitled',
+                                    link: item.link || '',
+                                    details: item.details || '',
+                                    attachments: item.attachments || [],
+                                    status: item.status || 'pending',
+                                    date: safeDate(item.date || item.created_at || item.createdAt)
+                                }));
+                            }
+                            // Handle Telegram JSON format
+                            else if (data.messages && Array.isArray(data.messages)) {
+                                importedTickets = data.messages
+                                    .filter(msg => msg.text)
+                                    .map(parseTelegramMessage);
+                            }
+                            // Handle object with tickets property
+                            else if (data.tickets && Array.isArray(data.tickets)) {
+                                importedTickets = data.tickets.map(item => ({
+                                    name: item.name || 'Untitled',
+                                    link: item.link || '',
+                                    details: item.details || '',
+                                    attachments: item.attachments || [],
+                                    status: item.status || 'pending',
+                                    date: safeDate(item.date)
+                                }));
+                            }
+                            // Handle single ticket object
+                            else if (data.name || data.details || data.text) {
+                                if (data.text && Array.isArray(data.text)) {
+                                    importedTickets = [parseTelegramMessage(data)];
+                                } else {
+                                    importedTickets = [{
+                                        name: data.name || 'Untitled',
+                                        link: data.link || '',
+                                        details: data.details || '',
+                                        attachments: data.attachments || [],
+                                        status: data.status || 'pending',
+                                        date: safeDate(data.date)
+                                    }];
+                                }
+                            }
+                            
+                            if (importedTickets.length > 0) {
+                                const newTickets = importedTickets.map((item, i) => ({
+                                    name: item.name || 'Untitled Ticket',
+                                    link: item.link || '',
+                                    details: item.details || '',
+                                    attachments: item.attachments || [],
+                                    status: item.status || 'pending',
+                                    date: item.date,
+                                    id: Date.now() + i * 100,
+                                    ticketNumber: tickets.length + i + 1
+                                }));
+                                
+                                saveTickets([...tickets, ...newTickets]);
+                                setShowImportModal(false);
+                                alert('✅ Successfully imported ' + newTickets.length + ' ticket(s)!\n\nتم استيراد ' + newTickets.length + ' تذكرة بنجاح!');
+                            } else {
+                                alert('⚠️ No valid tickets found in file\n\nلم يتم العثور على تذاكر صالحة في الملف');
+                            }
+                        } catch (e) {
+                            console.error('Import error:', e);
+                            alert('❌ Import error / خطأ في الاستيراد:\n\n' + e.message + '\n\nPlease make sure:\n1. The file is valid JSON format\n2. The file is not corrupted\n3. Try exporting from this system first to see the correct format');
+                        }
+                    };
+                    reader.readAsText(file);
+                };
+
+                const exportJSON = () => {
+                    const blob = new Blob([JSON.stringify(tickets, null, 2)], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'tickets_' + new Date().toISOString().split('T')[0] + '.json';
+                    a.click();
+                };
+
+                const filtered = tickets.filter(t => {
+                    const search = (t.name || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
+                                  (t.details || '').toLowerCase().includes(searchTerm.toLowerCase());
+                    const status = filterStatus === 'all' || t.status === filterStatus;
+                    return search && status;
+                });
+
+                const counts = {
+                    all: tickets.length,
+                    pending: tickets.filter(t => t.status === 'pending').length,
+                    progress: tickets.filter(t => t.status === 'in-progress').length,
+                    done: tickets.filter(t => t.status === 'completed').length
+                };
+
+                return h('div', { className: 'min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 md:p-6' },
+                    h('div', { className: 'max-w-7xl mx-auto' },
+                        h('div', { className: 'bg-gradient-to-r from-slate-700 to-slate-800 p-6 md:p-8 rounded-2xl shadow-xl mb-6 text-white' },
+                            h('div', { className: 'flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4' },
+                                h('div', null,
+                                    h('h1', { className: 'text-2xl md:text-4xl font-bold mb-2' }, 'Ticket Management System'),
+                                    h('p', { className: 'text-slate-300' }, 'نظام إدارة التذاكر')
+                                ),
+                                h('div', { className: 'flex gap-2 flex-wrap' },
+                                    h('button', { onClick: deleteAll, className: 'bg-red-600 px-4 py-2 rounded-lg hover:bg-red-700 font-semibold' }, '🗑️ Delete All'),
+                                    h('button', { onClick: () => setShowImportModal(true), className: 'bg-white text-slate-700 px-4 py-2 rounded-lg hover:bg-slate-50 font-semibold' }, '📥 Import'),
+                                    h('button', { onClick: exportJSON, className: 'bg-emerald-600 px-4 py-2 rounded-lg hover:bg-emerald-700 font-semibold' }, '📤 Export')
+                                )
+                            ),
+                            h('div', { className: 'grid grid-cols-2 md:grid-cols-4 gap-3' },
+                                h('div', { className: 'bg-white/10 backdrop-blur-sm rounded-lg p-4' },
+                                    h('p', { className: 'text-sm opacity-90' }, 'Total'),
+                                    h('p', { className: 'text-3xl font-bold' }, counts.all)
+                                ),
+                                h('div', { className: 'bg-amber-500/20 backdrop-blur-sm rounded-lg p-4' },
+                                    h('p', { className: 'text-sm opacity-90' }, 'Pending'),
+                                    h('p', { className: 'text-3xl font-bold' }, counts.pending)
+                                ),
+                                h('div', { className: 'bg-blue-500/20 backdrop-blur-sm rounded-lg p-4' },
+                                    h('p', { className: 'text-sm opacity-90' }, 'In Progress'),
+                                    h('p', { className: 'text-3xl font-bold' }, counts.progress)
+                                ),
+                                h('div', { className: 'bg-emerald-500/20 backdrop-blur-sm rounded-lg p-4' },
+                                    h('p', { className: 'text-sm opacity-90' }, 'Completed'),
+                                    h('p', { className: 'text-3xl font-bold' }, counts.done)
+                                )
+                            )
+                        ),
+
+                        h('div', { className: 'bg-white p-4 md:p-6 rounded-2xl shadow-lg mb-6' },
+                            h('div', { className: 'flex flex-col md:flex-row gap-3' },
+                                h('input', {
+                                    type: 'text', value: searchTerm, onChange: (e) => setSearchTerm(e.target.value),
+                                    placeholder: 'Search tickets...', className: 'flex-1 p-3 border-2 border-gray-200 rounded-lg outline-none'
+                                }),
+                                h('select', {
+                                    value: filterStatus, onChange: (e) => setFilterStatus(e.target.value),
+                                    className: 'p-3 border-2 border-gray-200 rounded-lg outline-none bg-white'
+                                },
+                                    h('option', { value: 'all' }, 'All Status'),
+                                    h('option', { value: 'pending' }, 'Pending'),
+                                    h('option', { value: 'in-progress' }, 'In Progress'),
+                                    h('option', { value: 'completed' }, 'Completed')
+                                ),
+                                h('button', {
+                                    onClick: () => setIsAddingTicket(true),
+                                    className: 'bg-slate-700 text-white px-6 py-3 rounded-lg hover:bg-slate-800 font-semibold'
+                                }, '➕ New Ticket')
+                            )
+                        ),
+
+                        (isAddingTicket || editingTicket) && h('div', { className: 'bg-white p-6 md:p-8 rounded-2xl shadow-2xl mb-6' },
+                            h('h3', { className: 'text-2xl font-bold mb-6' }, editingTicket ? 'Edit Ticket' : 'New Ticket'),
+                            h('div', { className: 'space-y-4' },
+                                h('input', {
+                                    type: 'text',
+                                    value: editingTicket ? editingTicket.name : currentTicket.name,
+                                    onChange: (e) => editingTicket ? 
+                                        setEditingTicket({ ...editingTicket, name: e.target.value }) :
+                                        setCurrentTicket({ ...currentTicket, name: e.target.value }),
+                                    placeholder: 'Name / Company',
+                                    className: 'w-full p-3 border-2 border-gray-200 rounded-lg outline-none'
+                                }),
+                                h('input', {
+                                    type: 'url',
+                                    value: editingTicket ? editingTicket.link : currentTicket.link,
+                                    onChange: (e) => editingTicket ?
+                                        setEditingTicket({ ...editingTicket, link: e.target.value }) :
+                                        setCurrentTicket({ ...currentTicket, link: e.target.value }),
+                                    placeholder: 'Link (optional)',
+                                    className: 'w-full p-3 border-2 border-gray-200 rounded-lg outline-none'
+                                }),
+                                h('textarea', {
+                                    value: editingTicket ? editingTicket.details : currentTicket.details,
+                                    onChange: (e) => editingTicket ?
+                                        setEditingTicket({ ...editingTicket, details: e.target.value }) :
+                                        setCurrentTicket({ ...currentTicket, details: e.target.value }),
+                                    placeholder: 'Details',
+                                    className: 'w-full p-3 border-2 border-gray-200 rounded-lg outline-none h-32 resize-none'
+                                }),
+                                h('div', { className: 'grid grid-cols-2 gap-4' },
+                                    h('select', {
+                                        value: editingTicket ? editingTicket.status : currentTicket.status,
+                                        onChange: (e) => editingTicket ?
+                                            setEditingTicket({ ...editingTicket, status: e.target.value }) :
+                                            setCurrentTicket({ ...currentTicket, status: e.target.value }),
+                                        className: 'p-3 border-2 border-gray-200 rounded-lg outline-none bg-white'
+                                    },
+                                        h('option', { value: 'pending' }, 'Pending'),
+                                        h('option', { value: 'in-progress' }, 'In Progress'),
+                                        h('option', { value: 'completed' }, 'Completed')
+                                    ),
+                                    h('input', {
+                                        type: 'date',
+                                        value: editingTicket ? editingTicket.date : currentTicket.date,
+                                        onChange: (e) => editingTicket ?
+                                            setEditingTicket({ ...editingTicket, date: e.target.value }) :
+                                            setCurrentTicket({ ...currentTicket, date: e.target.value }),
+                                        className: 'p-3 border-2 border-gray-200 rounded-lg outline-none'
+                                    })
+                                ),
+                                h('div', null,
+                                    h('label', { className: 'block text-sm font-semibold text-gray-700 mb-2' }, 'Upload Images (Max 5MB each)'),
+                                    h('label', {
+                                        className: 'w-full p-6 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-slate-600 transition-all flex flex-col items-center justify-center bg-gray-50',
+                                        htmlFor: 'file-upload-input'
+                                    },
+                                        h('div', { className: 'text-center' },
+                                            h('p', { className: 'text-4xl mb-2' }, '📤'),
+                                            h('p', { className: 'font-semibold text-gray-700 mb-1' }, 'Click to upload images'),
+                                            h('p', { className: 'text-sm text-gray-500' }, 'You can select multiple images at once')
+                                        )
+                                    ),
+                                    h('input', {
+                                        id: 'file-upload-input',
+                                        type: 'file',
+                                        accept: 'image/*',
+                                        multiple: true,
+                                        onChange: (e) => uploadImage(e, !!editingTicket),
+                                        className: 'hidden'
+                                    })
+                                ),
+                                ((editingTicket?.attachments || currentTicket.attachments).length > 0) &&
+                                h('div', { className: 'grid grid-cols-3 gap-3' },
+                                    (editingTicket?.attachments || currentTicket.attachments).map((img, i) =>
+                                        h('div', { key: i, className: 'relative group' },
+                                            h('img', { src: img, className: 'w-full h-24 object-cover rounded-lg' }),
+                                            h('button', {
+                                                onClick: () => {
+                                                    if (editingTicket) setEditingTicket(p => ({ ...p, attachments: p.attachments.filter((_, idx) => idx !== i) }));
+                                                    else setCurrentTicket(p => ({ ...p, attachments: p.attachments.filter((_, idx) => idx !== i) }));
+                                                },
+                                                className: 'absolute top-1 right-1 bg-red-500 text-white w-6 h-6 rounded-full opacity-0 group-hover:opacity-100'
+                                            }, '×')
+                                        )
+                                    )
+                                )
+                            ),
+                            h('div', { className: 'flex gap-3 mt-6' },
+                                h('button', {
+                                    onClick: editingTicket ? updateTicket : addTicket,
+                                    className: 'flex-1 bg-slate-700 text-white px-6 py-3 rounded-lg hover:bg-slate-800 font-semibold'
+                                }, 'Save'),
+                                h('button', {
+                                    onClick: () => { setIsAddingTicket(false); setEditingTicket(null); },
+                                    className: 'flex-1 bg-gray-200 px-6 py-3 rounded-lg hover:bg-gray-300 font-semibold'
+                                }, 'Cancel')
+                            )
+                        ),
+
+                        showImportModal && h('div', {
+                            className: 'fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4',
+                            onClick: () => setShowImportModal(false)
+                        },
+                            h('div', {
+                                className: 'bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-8',
+                                onClick: (e) => e.stopPropagation()
+                            },
+                                h('h3', { className: 'text-2xl font-bold mb-4' }, 'Import Tickets | استيراد التذاكر'),
+                                h('p', { className: 'text-gray-600 mb-6' }, 'Upload a JSON file exported from this system or Telegram'),
+                                h('label', {
+                                    className: 'block w-full p-8 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-slate-600 transition-all bg-gray-50',
+                                    htmlFor: 'import-file-input'
+                                },
+                                    h('div', { className: 'text-center' },
+                                        h('p', { className: 'text-5xl mb-3' }, '📁'),
+                                        h('p', { className: 'font-semibold text-gray-700 mb-2' }, 'Click to select JSON file'),
+                                        h('p', { className: 'text-sm text-gray-500' }, 'Supports: Exported tickets, Telegram JSON exports')
+                                    )
+                                ),
+                                h('input', {
+                                    id: 'import-file-input',
+                                    type: 'file',
+                                    accept: '.json',
+                                    onChange: importFile,
+                                    className: 'hidden'
+                                }),
+                                h('button', {
+                                    onClick: () => setShowImportModal(false),
+                                    className: 'w-full mt-4 bg-slate-700 text-white px-6 py-3 rounded-lg hover:bg-slate-800 font-semibold'
+                                }, 'Close | إغلاق')
+                            )
+                        ),
+
+                        viewingTicket && h('div', {
+                            className: 'fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4',
+                            onClick: () => setViewingTicket(null)
+                        },
+                            h('div', {
+                                className: 'bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto',
+                                onClick: (e) => e.stopPropagation()
+                            },
+                                h('div', { className: 'p-6 border-b flex justify-between items-center sticky top-0 bg-white' },
+                                    h('h3', { className: 'text-2xl font-bold' }, 'Ticket #' + viewingTicket.ticketNumber),
+                                    h('button', {
+                                        onClick: () => setViewingTicket(null),
+                                        className: 'text-gray-400 hover:text-gray-600 text-3xl'
+                                    }, '×')
+                                ),
+                                h('div', { className: 'p-8 space-y-6' },
+                                    h('div', null,
+                                        h('label', { className: 'text-sm font-semibold text-gray-500 block mb-2' }, 'Name'),
+                                        h('p', { className: 'text-xl font-bold' }, viewingTicket.name)
+                                    ),
+                                    viewingTicket.link && h('div', null,
+                                        h('label', { className: 'text-sm font-semibold text-gray-500 block mb-2' }, 'Link'),
+                                        h('a', {
+                                            href: viewingTicket.link, target: '_blank',
+                                            className: 'text-blue-500 hover:underline break-all'
+                                        }, viewingTicket.link)
+                                    ),
+                                    h('div', null,
+                                        h('label', { className: 'text-sm font-semibold text-gray-500 block mb-2' }, 'Details'),
+                                        h('p', { className: 'text-gray-700 whitespace-pre-wrap' }, viewingTicket.details)
+                                    ),
+                                    (viewingTicket.attachments?.length > 0) && h('div', null,
+                                        h('label', { className: 'text-sm font-semibold text-gray-500 block mb-2' }, 'Attachments'),
+                                        h('div', { className: 'grid grid-cols-2 gap-4' },
+                                            viewingTicket.attachments.map((img, i) =>
+                                                h('img', {
+                                                    key: i, src: img,
+                                                    className: 'w-full rounded-xl cursor-pointer hover:scale-105 transition-transform',
+                                                    onClick: () => window.open(img, '_blank')
+                                                })
+                                            )
+                                        )
+                                    )
+                                )
+                            )
+                        ),
+
+                        h('div', { className: 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6' },
+                            filtered.map(ticket =>
+                                h('div', {
+                                    key: ticket.id,
+                                    className: 'bg-white rounded-lg shadow-md hover:shadow-xl transition-all border-l-4 ' + (
+                                        ticket.status === 'completed' ? 'border-emerald-500' :
+                                        ticket.status === 'in-progress' ? 'border-blue-500' :
+                                        'border-amber-500'
+                                    )
+                                },
+                                    // Ticket Header
+                                    h('div', { className: 'bg-gradient-to-r from-slate-50 to-gray-50 p-4 border-b border-gray-200' },
+                                        h('div', { className: 'flex justify-between items-center' },
+                                            h('div', { className: 'flex items-center gap-3' },
+                                                h('div', { className: 'bg-slate-700 text-white w-12 h-12 rounded-lg flex items-center justify-center font-bold text-lg' },
+                                                    '#' + ticket.ticketNumber
+                                                ),
+                                                h('div', null,
+                                                    h('span', {
+                                                        className: 'inline-block px-3 py-1 rounded-full text-xs font-bold ' + (
+                                                            ticket.status === 'completed' ? 'bg-emerald-100 text-emerald-700' :
+                                                            ticket.status === 'in-progress' ? 'bg-blue-100 text-blue-700' :
+                                                            'bg-amber-100 text-amber-700'
+                                                        )
+                                                    },
+                                                        ticket.status === 'completed' ? '✓ مكتمل' :
+                                                        ticket.status === 'in-progress' ? '⟳ قيد التنفيذ' : '⏱ قيد الانتظار'
+                                                    ),
+                                                    h('p', { className: 'text-xs text-gray-500 mt-1 flex items-center gap-1' },
+                                                        '📅 ',
+                                                        ticket.date
+                                                    )
+                                                )
+                                            ),
+                                            h('div', { className: 'flex gap-1' },
+                                                h('button', {
+                                                    onClick: () => setViewingTicket(ticket),
+                                                    className: 'text-slate-600 hover:text-blue-600 p-2 rounded-lg hover:bg-blue-50 transition-all',
+                                                    title: 'View Details'
+                                                }, '👁️'),
+                                                h('button', {
+                                                    onClick: () => setEditingTicket(ticket),
+                                                    className: 'text-slate-600 hover:text-green-600 p-2 rounded-lg hover:bg-green-50 transition-all',
+                                                    title: 'Edit'
+                                                }, '✏️'),
+                                                h('button', {
+                                                    onClick: () => deleteTicket(ticket.id),
+                                                    className: 'text-slate-600 hover:text-red-600 p-2 rounded-lg hover:bg-red-50 transition-all',
+                                                    title: 'Delete'
+                                                }, '🗑️')
+                                            )
+                                        )
+                                    ),
+
+                                    // Ticket Body
+                                    h('div', { className: 'p-4' },
+                                        // Company Name Section
+                                        h('div', { className: 'mb-4' },
+                                            h('label', { className: 'text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1 block' }, 
+                                                '🏢 Company Name | اسم الشركة'
+                                            ),
+                                            h('h3', { 
+                                                className: 'font-bold text-lg text-slate-800 leading-tight',
+                                                style: { 
+                                                    direction: /[\u0600-\u06FF]/.test(ticket.name) ? 'rtl' : 'ltr',
+                                                    textAlign: /[\u0600-\u06FF]/.test(ticket.name) ? 'right' : 'left'
+                                                }
+                                            }, ticket.name),
+                                        ),
+                                        
+                                        // Link Section
+                                        ticket.link && h('div', { className: 'mb-4 pb-4 border-b border-gray-100' },
+                                            h('label', { className: 'text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1 block' }, 
+                                                '🔗 Link | الرابط'
+                                            ),
+                                            h('a', {
+                                                href: ticket.link,
+                                                target: '_blank',
+                                                className: 'text-blue-600 hover:text-blue-700 text-sm hover:underline break-all font-medium flex items-start gap-2',
+                                                dir: 'ltr'
+                                            }, 
+                                                h('span', { className: 'flex-shrink-0 mt-0.5' }, '↗'),
+                                                h('span', { className: 'break-all' }, ticket.link)
+                                            )
+                                        ),
+                                        
+                                        // Details Section
+                                        h('div', { className: 'mb-4' },
+                                            h('label', { className: 'text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 block' }, 
+                                                '📝 Details | التفاصيل'
+                                            ),
+                                            h('div', { 
+                                                className: 'bg-gray-50 rounded-lg p-3 border border-gray-200',
+                                                style: {
+                                                    direction: /[\u0600-\u06FF]/.test(ticket.details) ? 'rtl' : 'ltr',
+                                                    textAlign: /[\u0600-\u06FF]/.test(ticket.details) ? 'right' : 'left'
+                                                }
+                                            },
+                                                h('p', { 
+                                                    className: 'text-sm text-gray-700 leading-relaxed whitespace-pre-wrap',
+                                                    style: { 
+                                                        maxHeight: '120px',
+                                                        overflowY: 'auto'
+                                                    }
+                                                }, ticket.details),
+                                                ticket.details.length > 150 && h('button', {
+                                                    onClick: () => setViewingTicket(ticket),
+                                                    className: 'text-blue-600 text-xs font-semibold mt-2 hover:underline'
+                                                }, 'Read more... | اقرأ المزيد')
+                                            )
+                                        ),
+                                        
+                                        // Attachments Section
+                                        (ticket.attachments?.length > 0) && h('div', null,
+                                            h('label', { className: 'text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 block' }, 
+                                                '📎 Attachments (' + ticket.attachments.length + ') | المرفقات'
+                                            ),
+                                            h('div', { className: 'grid grid-cols-2 gap-2' },
+                                                ticket.attachments.slice(0, 4).map((img, i) =>
+                                                    h('div', { 
+                                                        key: i,
+                                                        className: 'relative group cursor-pointer rounded-lg overflow-hidden border-2 border-gray-200 hover:border-blue-400 transition-all'
+                                                    },
+                                                        h('img', {
+                                                            src: img,
+                                                            alt: 'Attachment ' + (i + 1),
+                                                            className: 'w-full h-24 object-cover group-hover:scale-110 transition-transform',
+                                                            onClick: () => window.open(img, '_blank')
+                                                        }),
+                                                        h('div', {
+                                                            className: 'absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all flex items-center justify-center'
+                                                        },
+                                                            h('span', {
+                                                                className: 'text-white opacity-0 group-hover:opacity-100 text-2xl'
+                                                            }, '🔍')
+                                                        )
+                                                    )
+                                                ),
+                                                (ticket.attachments.length > 4) && h('div', {
+                                                    onClick: () => setViewingTicket(ticket),
+                                                    className: 'flex items-center justify-center bg-slate-100 rounded-lg text-slate-700 font-bold cursor-pointer hover:bg-slate-200 transition-all border-2 border-slate-300'
+                                                }, '+' + (ticket.attachments.length - 4) + ' more')
+                                            )
+                                        )
+                                    )
+                                )
+                            )
+                        ),
+
+                        (filtered.length === 0) && h('div', { className: 'text-center py-20' },
+                            h('p', { className: 'text-6xl mb-4' }, '📋'),
+                            h('p', { className: 'text-xl font-semibold text-gray-600' }, 'No tickets found'),
+                            h('p', { className: 'text-gray-500' }, 'Click "New Ticket" to get started')
+                        )
+                    )
+                );
+            }
+
+            ReactDOM.render(React.createElement(App), document.getElementById('root'));
+        })();
     </script>
 </body>
 </html>
