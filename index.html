@@ -172,14 +172,21 @@
                         if (data.messages) {
                             imported = data.messages.filter(m => m.type === 'message' && m.text).map(msg => {
                                 const txt = extractText(msg.text);
-                                const nameMatch = txt.match(/(?:اسم المشروع او الشركة|اسم الشركة)[:\s]+(.+?)(?=\n|$)/is);
+                                const nameMatch = txt.match(/(?:اسم المشروع او الشركة|اسم الشركة)[:\s]*(.+?)(?=\n|$)/is);
                                 const urlMatch = txt.match(/(https?:\/\/[^\s\n]+)/i);
-                                // Remove name line and URL from details
+                                // Clean details - remove name, URL, and label lines
                                 let details = txt;
-                                if (nameMatch) details = details.replace(nameMatch[0], '').trim();
-                                if (urlMatch) details = details.replace(urlMatch[0], '').trim();
-                                // Clean up extra newlines
-                                details = details.replace(/\n{3,}/g, '\n\n').trim();
+                                // Remove ticket number line like #3 or #15
+                                details = details.replace(/^#\d+\s*$/gm, '');
+                                // Remove label lines
+                                details = details.replace(/^(?:اسم المشروع او الشركة|اسم الشركة)[:\s]*.*$/gim, '');
+                                details = details.replace(/^الروابط[:\s]*$/gim, '');
+                                details = details.replace(/^الرابط[:\s]*$/gim, '');
+                                details = details.replace(/^التفاصيل[:\s]*$/gim, '');
+                                // Remove URLs
+                                details = details.replace(/https?:\/\/[^\s\n]+/gi, '');
+                                // Clean up extra newlines and spaces
+                                details = details.replace(/\n{2,}/g, '\n').trim();
                                 return {
                                     name: nameMatch?.[1]?.trim() || txt.split('\n')[0]?.substring(0, 100) || 'تذكرة',
                                     link: urlMatch?.[1] || '', details: details, status: 'pending',
