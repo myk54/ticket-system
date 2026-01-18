@@ -174,9 +174,15 @@
                                 const txt = extractText(msg.text);
                                 const nameMatch = txt.match(/(?:اسم المشروع او الشركة|اسم الشركة)[:\s]+(.+?)(?=\n|$)/is);
                                 const urlMatch = txt.match(/(https?:\/\/[^\s\n]+)/i);
+                                // Remove name line and URL from details
+                                let details = txt;
+                                if (nameMatch) details = details.replace(nameMatch[0], '').trim();
+                                if (urlMatch) details = details.replace(urlMatch[0], '').trim();
+                                // Clean up extra newlines
+                                details = details.replace(/\n{3,}/g, '\n\n').trim();
                                 return {
                                     name: nameMatch?.[1]?.trim() || txt.split('\n')[0]?.substring(0, 100) || 'تذكرة',
-                                    link: urlMatch?.[1] || '', details: txt, status: 'pending',
+                                    link: urlMatch?.[1] || '', details: details, status: 'pending',
                                     date: msg.date?.split('T')[0] || new Date().toISOString().split('T')[0], attachments: []
                                 };
                             });
