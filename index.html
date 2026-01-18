@@ -407,7 +407,13 @@
                                 h('div', { className: 'space-y-4' },
                                     h('div', null,
                                         h('label', { className: 'text-xs font-semibold text-gray-500 uppercase block mb-2' }, '🏢 اسم الشركة أو المشروع'),
-                                        h('h3', { className: 'font-bold text-xl text-gray-900' }, ticket.name || 'بدون عنوان')
+                                        h('h3', { 
+                                            className: 'font-bold text-xl text-gray-900',
+                                            style: {
+                                                direction: /[\u0600-\u06FF]/.test(ticket.name) ? 'rtl' : 'ltr',
+                                                textAlign: /[\u0600-\u06FF]/.test(ticket.name) ? 'right' : 'left'
+                                            }
+                                        }, ticket.name || 'بدون عنوان')
                                     ),
                                     
                                     ticket.link && h('div', { className: 'pt-3 border-t border-gray-100' },
@@ -417,7 +423,8 @@
                                             target: '_blank',
                                             rel: 'noopener noreferrer',
                                             className: 'text-blue-600 text-sm hover:underline block break-all',
-                                            dir: 'ltr'
+                                            dir: 'ltr',
+                                            style: { textAlign: 'left' }
                                         }, ticket.link)
                                     ),
                                     
@@ -426,7 +433,12 @@
                                         h('div', { className: 'bg-gray-50 rounded-lg p-4 border border-gray-200' },
                                             h('p', {
                                                 className: 'text-sm text-gray-700 leading-relaxed whitespace-pre-wrap',
-                                                style: { maxHeight: '120px', overflowY: 'auto' }
+                                                style: { 
+                                                    maxHeight: '120px', 
+                                                    overflowY: 'auto',
+                                                    direction: /[\u0600-\u06FF]/.test(ticket.details) ? 'rtl' : 'ltr',
+                                                    textAlign: /[\u0600-\u06FF]/.test(ticket.details) ? 'right' : 'left'
+                                                }
                                             }, ticket.details || 'لا توجد تفاصيل'),
                                             (ticket.details && ticket.details.length > 150) && h('button', {
                                                 onClick: () => setViewingTicket(ticket),
