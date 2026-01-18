@@ -409,7 +409,11 @@
             );
         }
 
-        ReactDOM.render(React.createElement(App), document.getElementById('root'));
+<script>
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(React.createElement(App));
+</script>
     </script>
 </body>
 </html>
+
