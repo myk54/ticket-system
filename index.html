@@ -22,7 +22,7 @@
         
         const SUPABASE_URL = 'https://dpffflftuydonufluwmx.supabase.co';
         const SUPABASE_ANON_KEY = 'sb_publishable_7IaPwDdiUmyD182o3RB7Cw_8Q18zCXu';
-const sb = window.supabase.createClient(
+const sb = window.sb.createClient(
   SUPABASE_URL,
   SUPABASE_ANON_KEY
 );
@@ -66,7 +66,7 @@ const sb = window.supabase.createClient(
             const fetchTickets = async () => {
                 setLoading(true);
                 try {
-                    const { data, error } = await supabase.from('tickets').select('*').order('created_at', { ascending: false });
+                    const { data, error } = await sb.from('tickets').select('*').order('created_at', { ascending: false });
                     if (error) throw error;
                     setTickets(data.map(t => ({
                         id: t.id, ticketNumber: t.ticket_number, name: t.name, link: t.link || '',
@@ -81,14 +81,14 @@ const sb = window.supabase.createClient(
             const uploadFile = async (file) => {
                 const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${file.name.split('.').pop()}`;
                 const filePath = `uploads/${fileName}`;
-                const { error } = await supabase.storage.from('attachments').upload(filePath, file);
+                const { error } = await sb.storage.from('attachments').upload(filePath, file);
                 if (error) throw error;
-                const { data: urlData } = supabase.storage.from('attachments').getPublicUrl(filePath);
+                const { data: urlData } = sb.storage.from('attachments').getPublicUrl(filePath);
                 return { url: urlData.publicUrl, name: file.name, type: file.type, size: file.size, path: filePath };
             };
 
             const deleteFile = async (filePath) => {
-                try { if (filePath) await supabase.storage.from('attachments').remove([filePath]); } catch (e) { console.error(e); }
+                try { if (filePath) await sb.storage.from('attachments').remove([filePath]); } catch (e) { console.error(e); }
             };
 
             const addTicket = async () => {
