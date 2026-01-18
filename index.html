@@ -203,24 +203,16 @@
             const exportTickets = () => {
                 const a = document.createElement('a');
                 a.href = URL.createObjectURL(new Blob([JSON.stringify(tickets, null, 2)], { type: 'application/json' }));
-                a.download = 'tickets-' + new Date().toISOString().split('T')[0] + '.json';
+                a.download = 'tickets.json';
                 a.click();
             };
 
-            const filtered = tickets.filter(t => 
-                ((t.name || '').toLowerCase().includes(searchTerm.toLowerCase()) || (t.details || '').toLowerCase().includes(searchTerm.toLowerCase())) &&
-                (filterStatus === 'all' || t.status === filterStatus)
-            );
-
-            const renderAtt = (att, i) => {
-                const name = att.name || att.url || 'file';
-                return isImage(name) 
-                    ? h('img', { key: i, src: att.url, alt: 'مرفق', className: 'w-full h-24 object-cover rounded-lg cursor-pointer border hover:border-gray-400 transition-all', onClick: () => window.open(att.url, '_blank') })
-                    : h('div', { key: i, onClick: () => window.open(att.url, '_blank'), className: 'w-full h-24 bg-gray-100 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-gray-200 border border-gray-300' },
-                        h('span', { className: 'text-2xl' }, getFileIcon(name)),
-                        h('span', { className: 'text-xs text-gray-600 mt-1 truncate w-full text-center px-1' }, name.substring(0, 12))
-                    );
-            };
+            const filtered = tickets.filter(t => {
+                const search = (t.name || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
+                              (t.details || '').toLowerCase().includes(searchTerm.toLowerCase());
+                const status = filterStatus === 'all' || t.status === filterStatus;
+                return search && status;
+            });
 
             const renderEditAtt = (att, i, isEdit) => {
                 const name = att.name || 'file';
@@ -235,32 +227,22 @@
                 );
             };
 
-            const statusBadge = (status) => h('span', {
-                className: 'px-3 py-1.5 rounded-lg text-sm font-semibold ' + (
-                    status === 'completed' ? 'bg-green-100 text-green-700 border border-green-200' :
-                    status === 'in-progress' ? 'bg-blue-100 text-blue-700 border border-blue-200' :
-                    'bg-orange-100 text-orange-700 border border-orange-200'
-                )
-            }, status === 'completed' ? 'مكتمل' : status === 'in-progress' ? 'قيد التنفيذ' : 'قيد الانتظار');
-
-            // Original beautiful design layout
             return h('div', { className: 'min-h-screen bg-gray-50 p-4 md:p-6' },
                 h('div', { className: 'max-w-7xl mx-auto' },
                     
-                    // Header Card with Stats - Original Design
+                    // Header Card with Stats
                     h('div', { className: 'bg-white p-6 md:p-8 rounded-xl shadow-sm mb-6 border border-gray-200' },
                         h('div', { className: 'flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4' },
                             h('div', null,
                                 h('h1', { className: 'text-3xl md:text-4xl font-bold mb-2 text-gray-900' }, 'نظام إدارة التذاكر'),
                                 h('p', { className: 'text-gray-600' }, 'إدارة ومتابعة تذاكر العمل')
                             ),
-                            h('div', { className: 'flex gap-3 flex-wrap' },
-                                h('button', { onClick: deleteAll, className: 'bg-white border border-red-200 text-red-600 px-4 py-2.5 rounded-lg hover:bg-red-50 font-semibold transition-colors' }, 'حذف الكل'),
-                                h('button', { onClick: () => setShowImportModal(true), className: 'bg-white border border-gray-300 text-gray-700 px-4 py-2.5 rounded-lg hover:bg-gray-50 font-semibold transition-colors' }, 'استيراد'),
-                                h('button', { onClick: exportTickets, className: 'bg-white border border-gray-300 text-gray-700 px-4 py-2.5 rounded-lg hover:bg-gray-50 font-semibold transition-colors' }, 'تصدير')
+                            h('div', { className: 'flex gap-3' },
+                                h('button', { onClick: deleteAll, className: 'bg-white border border-red-200 text-red-600 px-4 py-2.5 rounded-lg hover:bg-red-50 font-semibold' }, 'حذف الكل'),
+                                h('button', { onClick: () => setShowImportModal(true), className: 'bg-white border border-gray-300 text-gray-700 px-4 py-2.5 rounded-lg hover:bg-gray-50 font-semibold' }, 'استيراد'),
+                                h('button', { onClick: exportTickets, className: 'bg-white border border-gray-300 text-gray-700 px-4 py-2.5 rounded-lg hover:bg-gray-50 font-semibold' }, 'تصدير')
                             )
                         ),
-                        // Stats Cards - Original Design
                         h('div', { className: 'grid grid-cols-2 md:grid-cols-4 gap-4' },
                             h('div', { className: 'bg-gray-50 rounded-lg p-4 border' },
                                 h('p', { className: 'text-sm text-gray-600' }, 'الإجمالي'),
@@ -281,20 +263,16 @@
                         )
                     ),
 
-                    // Search Bar - Original Design
+                    // Search Bar
                     h('div', { className: 'bg-white p-4 rounded-xl shadow-sm mb-6 border' },
                         h('div', { className: 'flex flex-col md:flex-row gap-3' },
                             h('input', {
-                                type: 'text',
-                                value: searchTerm,
-                                onChange: (e) => setSearchTerm(e.target.value),
-                                placeholder: 'ابحث...',
-                                className: 'flex-1 p-3 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500'
+                                type: 'text', value: searchTerm, onChange: (e) => setSearchTerm(e.target.value),
+                                placeholder: 'ابحث...', className: 'flex-1 p-3 border rounded-lg outline-none'
                             }),
                             h('select', {
-                                value: filterStatus,
-                                onChange: (e) => setFilterStatus(e.target.value),
-                                className: 'p-3 border rounded-lg bg-white cursor-pointer'
+                                value: filterStatus, onChange: (e) => setFilterStatus(e.target.value),
+                                className: 'p-3 border rounded-lg bg-white'
                             },
                                 h('option', { value: 'all' }, 'الكل'),
                                 h('option', { value: 'pending' }, 'انتظار'),
@@ -303,49 +281,36 @@
                             ),
                             h('button', {
                                 onClick: () => setIsAddingTicket(true),
-                                className: 'bg-gray-900 text-white px-6 py-3 rounded-lg hover:bg-gray-800 font-semibold transition-colors'
+                                className: 'bg-gray-900 text-white px-6 py-3 rounded-lg hover:bg-gray-800 font-semibold'
                             }, '+ تذكرة جديدة')
                         )
                     ),
 
-                    // Add/Edit Form - Inline Original Design
+                    // Add/Edit Form - Inline
                     (isAddingTicket || editingTicket) && h('div', { className: 'bg-white p-6 rounded-xl shadow-sm mb-6 border' },
-                        h('h3', { className: 'text-2xl font-bold mb-6' }, editingTicket ? 'تعديل التذكرة #' + editingTicket.ticketNumber : 'تذكرة جديدة'),
+                        h('h3', { className: 'text-2xl font-bold mb-6' }, editingTicket ? 'تعديل' : 'تذكرة جديدة'),
                         h('div', { className: 'space-y-4' },
                             h('input', {
                                 type: 'text',
                                 value: editingTicket ? editingTicket.name : currentTicket.name,
-                                onChange: (e) => editingTicket ? 
-                                    setEditingTicket({ ...editingTicket, name: e.target.value }) :
-                                    setCurrentTicket({ ...currentTicket, name: e.target.value }),
-                                placeholder: 'اسم الشركة',
-                                className: 'w-full p-3 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500'
+                                onChange: (e) => editingTicket ? setEditingTicket({ ...editingTicket, name: e.target.value }) : setCurrentTicket({ ...currentTicket, name: e.target.value }),
+                                placeholder: 'اسم الشركة', className: 'w-full p-3 border rounded-lg'
                             }),
                             h('input', {
                                 type: 'url',
                                 value: editingTicket ? editingTicket.link : currentTicket.link,
-                                onChange: (e) => editingTicket ? 
-                                    setEditingTicket({ ...editingTicket, link: e.target.value }) :
-                                    setCurrentTicket({ ...currentTicket, link: e.target.value }),
-                                placeholder: 'الرابط',
-                                className: 'w-full p-3 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500',
-                                dir: 'ltr'
+                                onChange: (e) => editingTicket ? setEditingTicket({ ...editingTicket, link: e.target.value }) : setCurrentTicket({ ...currentTicket, link: e.target.value }),
+                                placeholder: 'الرابط', className: 'w-full p-3 border rounded-lg', dir: 'ltr'
                             }),
                             h('textarea', {
                                 value: editingTicket ? editingTicket.details : currentTicket.details,
-                                onChange: (e) => editingTicket ? 
-                                    setEditingTicket({ ...editingTicket, details: e.target.value }) :
-                                    setCurrentTicket({ ...currentTicket, details: e.target.value }),
-                                placeholder: 'التفاصيل',
-                                rows: 4,
-                                className: 'w-full p-3 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500 resize-none'
+                                onChange: (e) => editingTicket ? setEditingTicket({ ...editingTicket, details: e.target.value }) : setCurrentTicket({ ...currentTicket, details: e.target.value }),
+                                placeholder: 'التفاصيل', rows: 4, className: 'w-full p-3 border rounded-lg resize-none'
                             }),
                             h('div', { className: 'grid grid-cols-1 md:grid-cols-3 gap-4' },
                                 h('select', {
                                     value: editingTicket ? editingTicket.status : currentTicket.status,
-                                    onChange: (e) => editingTicket ? 
-                                        setEditingTicket({ ...editingTicket, status: e.target.value }) :
-                                        setCurrentTicket({ ...currentTicket, status: e.target.value }),
+                                    onChange: (e) => editingTicket ? setEditingTicket({ ...editingTicket, status: e.target.value }) : setCurrentTicket({ ...currentTicket, status: e.target.value }),
                                     className: 'p-3 border rounded-lg bg-white'
                                 },
                                     h('option', { value: 'pending' }, 'قيد الانتظار'),
@@ -355,39 +320,43 @@
                                 h('input', {
                                     type: 'date',
                                     value: editingTicket ? editingTicket.date : currentTicket.date,
-                                    onChange: (e) => editingTicket ? 
-                                        setEditingTicket({ ...editingTicket, date: e.target.value }) :
-                                        setCurrentTicket({ ...currentTicket, date: e.target.value }),
+                                    onChange: (e) => editingTicket ? setEditingTicket({ ...editingTicket, date: e.target.value }) : setCurrentTicket({ ...currentTicket, date: e.target.value }),
                                     className: 'p-3 border rounded-lg'
                                 }),
                                 h('input', {
-                                    type: 'file',
-                                    multiple: true,
+                                    type: 'file', multiple: true,
                                     onChange: (e) => handleFileUpload(e, !!editingTicket),
-                                    disabled: uploadingFiles,
-                                    className: 'p-2 border rounded-lg'
+                                    disabled: uploadingFiles, className: 'p-2 border rounded-lg'
                                 })
                             ),
                             uploadingFiles && h('p', { className: 'text-blue-600' }, '⏳ جاري رفع الملفات...'),
-                            // Show attachments
                             ((editingTicket?.attachments?.length > 0) || (currentTicket.attachments.length > 0)) && 
                                 h('div', { className: 'grid grid-cols-4 md:grid-cols-6 gap-2' },
-                                    (editingTicket ? editingTicket.attachments : currentTicket.attachments).map((att, i) => 
-                                        renderEditAtt(att, i, !!editingTicket)
-                                    )
+                                    (editingTicket ? editingTicket.attachments : currentTicket.attachments).map((att, i) => renderEditAtt(att, i, !!editingTicket))
                                 ),
-                            h('div', { className: 'flex gap-3 pt-4' },
+                            h('div', { className: 'flex gap-3 mt-6' },
                                 h('button', {
                                     onClick: editingTicket ? updateTicket : addTicket,
                                     disabled: saving || uploadingFiles,
-                                    className: 'bg-gray-900 text-white px-6 py-3 rounded-lg hover:bg-gray-800 font-semibold disabled:opacity-50 transition-colors'
-                                }, saving ? 'جاري الحفظ...' : (editingTicket ? 'حفظ التعديلات' : 'إضافة')),
+                                    className: 'flex-1 bg-gray-900 text-white px-6 py-3 rounded-lg hover:bg-gray-800 font-semibold disabled:opacity-50'
+                                }, saving ? 'جاري الحفظ...' : 'حفظ'),
                                 h('button', {
                                     onClick: () => { setIsAddingTicket(false); setEditingTicket(null); },
                                     disabled: saving || uploadingFiles,
-                                    className: 'bg-gray-200 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-300 font-semibold disabled:opacity-50 transition-colors'
+                                    className: 'flex-1 bg-gray-200 px-6 py-3 rounded-lg hover:bg-gray-300 font-semibold disabled:opacity-50'
                                 }, 'إلغاء')
                             )
+                        )
+                    ),
+
+                    // Import Modal
+                    showImportModal && h('div', { className: 'fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4', onClick: () => setShowImportModal(false) },
+                        h('div', { className: 'bg-white rounded-xl p-8 max-w-md w-full', onClick: (e) => e.stopPropagation() },
+                            h('h3', { className: 'text-2xl font-bold mb-4' }, 'استيراد تذاكر'),
+                            h('p', { className: 'text-gray-600 mb-4' }, 'اختر ملف JSON'),
+                            h('input', { type: 'file', accept: '.json', onChange: handleImport, className: 'w-full p-3 border rounded-lg mb-4' }),
+                            saving && h('p', { className: 'text-blue-600 mb-4' }, '⏳ جاري الاستيراد...'),
+                            h('button', { onClick: () => setShowImportModal(false), className: 'w-full bg-gray-900 text-white px-6 py-3 rounded-lg hover:bg-gray-800' }, 'إغلاق')
                         )
                     ),
 
@@ -397,86 +366,103 @@
                         h('p', { className: 'mt-4 text-gray-500' }, 'جاري التحميل...')
                     ),
 
-                    // Tickets Grid - Original Design
-                    !loading && h('div', { className: 'grid md:grid-cols-2 lg:grid-cols-3 gap-4' },
-                        filtered.map(ticket => 
-                            h('div', { key: ticket.id, className: 'bg-white rounded-xl border border-gray-200 hover:shadow-lg transition-shadow overflow-hidden' },
-                                h('div', { className: 'p-5' },
-                                    h('div', { className: 'flex justify-between items-start mb-3' },
-                                        h('span', { className: 'bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs font-semibold' }, '#' + ticket.ticketNumber),
-                                        h('div', { className: 'flex gap-1' },
-                                            h('button', { 
-                                                onClick: () => setEditingTicket({...ticket}), 
-                                                className: 'p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors' 
-                                            }, '✏️'),
-                                            h('button', { 
-                                                onClick: () => deleteTicket(ticket.id), 
-                                                className: 'p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors' 
-                                            }, '🗑️')
-                                        )
+                    // Tickets Grid - 2 columns like original
+                    !loading && h('div', { className: 'grid grid-cols-1 lg:grid-cols-2 gap-6' },
+                        filtered.map(ticket =>
+                            h('div', { key: ticket.id, className: 'bg-white rounded-xl shadow-sm border p-6 hover:shadow-md transition-all' },
+                                // Header with ticket number and buttons
+                                h('div', { className: 'bg-gray-50 p-4 rounded-lg mb-4 flex justify-between items-center' },
+                                    h('div', { className: 'bg-gray-900 text-white w-14 h-14 rounded-lg flex items-center justify-center font-bold text-xl' },
+                                        ticket.ticketNumber
                                     ),
-                                    h('h3', { className: 'font-bold text-lg text-gray-900 mb-2' }, ticket.name),
-                                    ticket.link && h('a', { 
-                                        href: ticket.link, 
-                                        target: '_blank',
-                                        rel: 'noopener noreferrer',
-                                        className: 'text-blue-600 text-sm hover:underline block mb-2 truncate', 
-                                        dir: 'ltr' 
-                                    }, ticket.link),
-                                    h('div', { className: 'mb-3' },
-                                        h('p', { className: 'text-gray-600 text-sm' }, (ticket.details || '').substring(0, 150)),
-                                        (ticket.details || '').length > 150 && h('button', { 
-                                            onClick: () => setViewingTicket(ticket), 
-                                            className: 'text-blue-600 text-xs font-semibold mt-2 hover:underline' 
-                                        }, 'اقرأ المزيد...')
+                                    h('div', { className: 'flex gap-2' },
+                                        h('button', { onClick: () => setViewingTicket(ticket), className: 'p-2 hover:bg-blue-50 rounded-lg transition-all', title: 'عرض' }, '👁'),
+                                        h('button', { onClick: () => setEditingTicket(ticket), className: 'p-2 hover:bg-green-50 rounded-lg transition-all', title: 'تعديل' }, '✏'),
+                                        h('button', { onClick: () => deleteTicket(ticket.id), className: 'p-2 hover:bg-red-50 rounded-lg transition-all', title: 'حذف' }, '🗑')
+                                    )
+                                ),
+                                
+                                h('div', { className: 'space-y-4' },
+                                    // Company Name Section
+                                    h('div', null,
+                                        h('label', { className: 'text-xs font-semibold text-gray-500 uppercase block mb-2' }, '🏢 اسم الشركة أو المشروع'),
+                                        h('h3', { 
+                                            className: 'font-bold text-xl text-gray-900',
+                                            style: { direction: /[\u0600-\u06FF]/.test(ticket.name || '') ? 'rtl' : 'ltr', textAlign: /[\u0600-\u06FF]/.test(ticket.name || '') ? 'right' : 'left' }
+                                        }, ticket.name || 'بدون عنوان')
                                     ),
                                     
-                                    // Attachments
+                                    // Link Section
+                                    ticket.link && h('div', { className: 'pt-3 border-t border-gray-100' },
+                                        h('label', { className: 'text-xs font-semibold text-gray-500 uppercase block mb-2' }, '🔗 الرابط'),
+                                        h('a', {
+                                            href: ticket.link, target: '_blank', rel: 'noopener noreferrer',
+                                            className: 'text-blue-600 text-sm hover:underline block break-all',
+                                            dir: 'ltr', style: { textAlign: 'left' }
+                                        }, ticket.link)
+                                    ),
+                                    
+                                    // Details Section
+                                    h('div', { className: 'pt-3 border-t border-gray-100' },
+                                        h('label', { className: 'text-xs font-semibold text-gray-500 uppercase block mb-2' }, '📝 التفاصيل'),
+                                        h('div', { className: 'bg-gray-50 rounded-lg p-4 border border-gray-200' },
+                                            h('p', {
+                                                className: 'text-sm text-gray-700 leading-relaxed whitespace-pre-wrap',
+                                                style: { 
+                                                    maxHeight: '120px', overflowY: 'auto',
+                                                    direction: /[\u0600-\u06FF]/.test(ticket.details || '') ? 'rtl' : 'ltr',
+                                                    textAlign: /[\u0600-\u06FF]/.test(ticket.details || '') ? 'right' : 'left'
+                                                }
+                                            }, ticket.details || 'لا توجد تفاصيل'),
+                                            (ticket.details && ticket.details.length > 150) && h('button', {
+                                                onClick: () => setViewingTicket(ticket),
+                                                className: 'text-blue-600 text-xs font-semibold mt-2 hover:underline'
+                                            }, 'اقرأ المزيد...')
+                                        )
+                                    ),
+                                    
+                                    // Attachments Section
                                     (ticket.attachments && ticket.attachments.length > 0) && h('div', { className: 'pt-3 border-t border-gray-100' },
-                                        h('label', { className: 'text-xs font-semibold text-gray-500 uppercase block mb-3' }, 
-                                            '📎 المرفقات (' + ticket.attachments.length + ')'
-                                        ),
+                                        h('label', { className: 'text-xs font-semibold text-gray-500 uppercase block mb-3' }, '📎 المرفقات (' + ticket.attachments.length + ')'),
                                         h('div', { className: 'grid grid-cols-3 gap-2' },
-                                            ticket.attachments.slice(0, 6).map((att, i) => renderAtt(att, i)),
+                                            ticket.attachments.slice(0, 6).map((att, i) => {
+                                                const name = att.name || att.url || 'file';
+                                                return isImage(name)
+                                                    ? h('img', { key: i, src: att.url, alt: 'مرفق', className: 'w-full h-24 object-cover rounded-lg cursor-pointer border hover:border-gray-400 transition-all', onClick: () => window.open(att.url, '_blank') })
+                                                    : h('div', { key: i, onClick: () => window.open(att.url, '_blank'), className: 'w-full h-24 bg-gray-100 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-gray-200 border border-gray-300' },
+                                                        h('span', { className: 'text-2xl' }, getFileIcon(name)),
+                                                        h('span', { className: 'text-xs text-gray-600 mt-1 truncate w-full text-center px-1' }, name.substring(0, 12))
+                                                    );
+                                            }),
                                             (ticket.attachments.length > 6) && h('div', {
-                                                key: 'more',
                                                 onClick: () => setViewingTicket(ticket),
                                                 className: 'w-full h-24 bg-gray-100 rounded-lg flex items-center justify-center cursor-pointer hover:bg-gray-200 border border-gray-300'
-                                            },
-                                                h('span', { className: 'font-bold text-gray-700' }, '+' + (ticket.attachments.length - 6))
-                                            )
+                                            }, h('span', { className: 'font-bold text-gray-700' }, '+' + (ticket.attachments.length - 6)))
                                         )
                                     ),
                                     
+                                    // Status and Date
                                     h('div', { className: 'pt-3 border-t border-gray-100 flex justify-between items-center' },
-                                        statusBadge(ticket.status),
-                                        h('span', { className: 'text-sm text-gray-500' }, ticket.date || '')
+                                        h('span', {
+                                            className: 'px-3 py-1.5 rounded-lg text-sm font-semibold ' + (
+                                                ticket.status === 'completed' ? 'bg-green-100 text-green-700 border border-green-200' :
+                                                ticket.status === 'in-progress' ? 'bg-blue-100 text-blue-700 border border-blue-200' :
+                                                'bg-orange-100 text-orange-700 border border-orange-200'
+                                            )
+                                        }, ticket.status === 'completed' ? 'مكتمل' : ticket.status === 'in-progress' ? 'قيد التنفيذ' : 'قيد الانتظار'),
+                                        h('span', { className: 'text-sm text-gray-500' }, ticket.date || new Date().toISOString().split('T')[0])
                                     )
                                 )
                             )
                         )
                     ),
 
-                    // Empty State
-                    !loading && filtered.length === 0 && h('div', { className: 'text-center py-20' },
-                        h('p', { className: 'text-xl text-gray-500' }, 'لا توجد تذاكر')
-                    ),
-
                     // View Modal
-                    viewingTicket && h('div', {
-                        className: 'fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4',
-                        onClick: () => setViewingTicket(null)
-                    },
-                        h('div', {
-                            className: 'bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto',
-                            onClick: (e) => e.stopPropagation()
-                        },
+                    viewingTicket && h('div', { className: 'fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4', onClick: () => setViewingTicket(null) },
+                        h('div', { className: 'bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto', onClick: (e) => e.stopPropagation() },
                             h('div', { className: 'p-6 border-b border-gray-200 flex justify-between items-center sticky top-0 bg-white z-10' },
                                 h('h3', { className: 'text-2xl font-bold text-gray-900' }, 'تذكرة رقم ' + viewingTicket.ticketNumber),
-                                h('button', {
-                                    onClick: () => setViewingTicket(null),
-                                    className: 'text-gray-400 hover:text-gray-600 text-3xl w-10 h-10 flex items-center justify-center hover:bg-gray-100 rounded-lg'
-                                }, '×')
+                                h('button', { onClick: () => setViewingTicket(null), className: 'text-gray-400 hover:text-gray-600 text-3xl w-10 h-10 flex items-center justify-center hover:bg-gray-100 rounded-lg' }, '×')
                             ),
                             h('div', { className: 'p-8 space-y-6' },
                                 h('div', null,
@@ -485,13 +471,7 @@
                                 ),
                                 viewingTicket.link && h('div', null,
                                     h('label', { className: 'text-sm font-semibold text-gray-500 block mb-2' }, 'الرابط'),
-                                    h('a', {
-                                        href: viewingTicket.link,
-                                        target: '_blank',
-                                        rel: 'noopener noreferrer',
-                                        className: 'text-blue-600 hover:underline break-all',
-                                        dir: 'ltr'
-                                    }, viewingTicket.link)
+                                    h('a', { href: viewingTicket.link, target: '_blank', rel: 'noopener noreferrer', className: 'text-blue-600 hover:underline break-all', dir: 'ltr' }, viewingTicket.link)
                                 ),
                                 h('div', null,
                                     h('label', { className: 'text-sm font-semibold text-gray-500 block mb-2' }, 'التفاصيل'),
@@ -502,17 +482,9 @@
                                     h('div', { className: 'grid grid-cols-2 gap-4' },
                                         viewingTicket.attachments.map((att, i) => {
                                             const name = att.name || 'file';
-                                            return h('div', { 
-                                                key: i, 
-                                                className: 'border rounded-lg overflow-hidden cursor-pointer hover:shadow-md transition-shadow',
-                                                onClick: () => window.open(att.url, '_blank')
-                                            },
+                                            return h('div', { key: i, className: 'border rounded-lg overflow-hidden cursor-pointer hover:shadow-md', onClick: () => window.open(att.url, '_blank') },
                                                 isImage(name)
-                                                    ? h('img', {
-                                                        src: att.url,
-                                                        alt: name,
-                                                        className: 'w-full rounded-lg cursor-pointer hover:scale-105 transition-transform border border-gray-200'
-                                                    })
+                                                    ? h('img', { src: att.url, className: 'w-full rounded-lg cursor-pointer hover:scale-105 transition-transform border border-gray-200' })
                                                     : h('div', { className: 'w-full h-32 bg-gray-100 flex flex-col items-center justify-center' },
                                                         h('span', { className: 'text-4xl' }, getFileIcon(name)),
                                                         h('span', { className: 'text-sm text-gray-600 mt-2' }, name)
@@ -530,10 +502,7 @@
                                                 viewingTicket.status === 'in-progress' ? 'bg-blue-100 text-blue-700 border border-blue-200' :
                                                 'bg-orange-100 text-orange-700 border border-orange-200'
                                             )
-                                        },
-                                            viewingTicket.status === 'completed' ? 'مكتمل' :
-                                            viewingTicket.status === 'in-progress' ? 'قيد التنفيذ' : 'قيد الانتظار'
-                                        )
+                                        }, viewingTicket.status === 'completed' ? 'مكتمل' : viewingTicket.status === 'in-progress' ? 'قيد التنفيذ' : 'قيد الانتظار')
                                     ),
                                     h('div', null,
                                         h('label', { className: 'text-sm font-semibold text-gray-500 block mb-2' }, 'التاريخ'),
@@ -544,37 +513,9 @@
                         )
                     ),
 
-                    // Import Modal
-                    showImportModal && h('div', {
-                        className: 'fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4',
-                        onClick: () => !saving && setShowImportModal(false)
-                    },
-                        h('div', {
-                            className: 'bg-white rounded-xl shadow-2xl max-w-md w-full',
-                            onClick: (e) => e.stopPropagation()
-                        },
-                            h('div', { className: 'p-6 border-b' },
-                                h('h3', { className: 'text-xl font-bold' }, 'استيراد التذاكر')
-                            ),
-                            h('div', { className: 'p-6' },
-                                h('p', { className: 'text-gray-600 mb-4' }, 'اختر ملف JSON للاستيراد (تصدير Telegram أو نسخة احتياطية)'),
-                                h('input', {
-                                    type: 'file',
-                                    accept: '.json',
-                                    onChange: handleImport,
-                                    disabled: saving,
-                                    className: 'w-full'
-                                }),
-                                saving && h('p', { className: 'mt-4 text-blue-600' }, '⏳ جاري الاستيراد...')
-                            ),
-                            h('div', { className: 'p-6 border-t' },
-                                h('button', {
-                                    onClick: () => setShowImportModal(false),
-                                    disabled: saving,
-                                    className: 'w-full bg-gray-100 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-200 disabled:opacity-50'
-                                }, 'إلغاء')
-                            )
-                        )
+                    // Empty State
+                    !loading && filtered.length === 0 && h('div', { className: 'text-center py-20' },
+                        h('p', { className: 'text-xl text-gray-500' }, 'لا توجد تذاكر')
                     )
                 )
             );
