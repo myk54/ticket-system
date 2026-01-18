@@ -1,4 +1,103 @@
-<!DOCTYPE html>
+showImportModal && h('div', {
+                        className: 'fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4',
+                        onClick: () => setShowImportModal(false)
+                    },
+                        h('div', {
+                            className: 'bg-white rounded-xl shadow-2xl max-w-2xl w-full p-8',
+                            onClick: (e) => e.stopPropagation()
+                        },
+                            h('h3', { className: 'text-2xl font-bold mb-4 text-gray-900' }, 'استيراد التذاكر'),
+                            h('p', { className: 'text-gray-600 mb-6' }, 'قم برفع ملف JSON المصدر من هذا النظام أو من تيليجرام'),
+                            h('label', {
+                                className: 'block w-full p-8 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-gray-400 transition-all bg-gray-50',
+                                htmlFor: 'import-file-input'
+                            },
+                                h('div', { className: 'text-center' },
+                                    h('p', { className: 'text-5xl mb-3' }, '📁'),
+                                    h('p', { className: 'font-semibold text-gray-700 mb-2' }, 'انقر لاختيار ملف JSON'),
+                                    h('p', { className: 'text-sm text-gray-500' }, 'يدعم: التذاكر المصدرة، ملفات تيليجرام JSON')
+                                )
+                            ),
+                            h('input', {
+                                id: 'import-file-input',
+                                type: 'file',
+                                accept: '.json',
+                                onChange: importFile,
+                                className: 'hidden'
+                            }),
+                            h('button', {
+                                onClick: () => setShowImportModal(false),
+                                className: 'w-full mt-4 bg-gray-900 text-white px-6 py-3 rounded-lg hover:bg-gray-800 font-semibold'
+                            }, 'إغلاق')
+                        )
+                    ),
+
+                    viewingTicket && h('div', {
+                        className: 'fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4',
+                        onClick: () => setViewingTicket(null)
+                    },
+                        h('div', {
+                            className: 'bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto',
+                            onClick: (e) => e.stopPropagation()
+                        },
+                            h('div', { className: 'p-6 border-b border-gray-200 flex justify-between items-center sticky top-0 bg-white' },
+                                h('h3', { className: 'text-2xl font-bold text-gray-900' }, 'تذكرة رقم ' + viewingTicket.ticketNumber),
+                                h('button', {
+                                    onClick: () => setViewingTicket(null),
+                                    className: 'text-gray-400 hover:text-gray-600 text-3xl'
+                                }, '×')
+                            ),
+                            h('div', { className: 'p-8 space-y-6' },
+                                h('div', null,
+                                    h('label', { className: 'text-sm font-semibold text-gray-500 block mb-2' }, 'اسم الشركة أو المشروع'),
+                                    h('p', { className: 'text-xl font-bold text-gray-900' }, viewingTicket.name)
+                                ),
+                                viewingTicket.link && h('div', null,
+                                    h('label', { className: 'text-sm font-semibold text-gray-500 block mb-2' }, 'الرابط'),
+                                    h('a', {
+                                        href: viewingTicket.link, target: '_blank',
+                                        className: 'text-blue-600 hover:underline break-all',
+                                        dir: 'ltr'
+                                    }, viewingTicket.link)
+                                ),
+                                h('div', null,
+                                    h('label', { className: 'text-sm font-semibold text-gray-500 block mb-2' }, 'التفاصيل'),
+                                    h('p', { className: 'text-gray-700 whitespace-pre-wrap leading-relaxed' }, viewingTicket.details)
+                                ),
+                                (viewingTicket.attachments?.length > 0) && h('div', null,
+                                    h('label', { className: 'text-sm font-semibold text-gray-500 block mb-2' }, 'المرفقات'),
+                                    h('div', { className: 'grid grid-cols-2 gap-4' },
+                                        viewingTicket.attachments.map((img, i) =>
+                                            h('img', {
+                                                key: i, src: img,
+                                                className: 'w-full rounded-lg cursor-pointer hover:scale-105 transition-transform border border-gray-200',
+                                                onClick: () => window.open(img, '_blank')
+                                            })
+                                        )
+                                    )
+                                ),
+                                h('div', { className: 'grid grid-cols-2 gap-4 pt-4 border-t border-gray-200' },
+                                    h('div', null,
+                                        h('label', { className: 'text-sm font-semibold text-gray-500 block mb-2' }, 'الحالة'),
+                                        h('span', {
+                                            className: 'inline-block px-4 py-2 rounded-lg font-semibold ' + (
+                                                viewingTicket.status === 'completed' ? 'bg-green-100 text-green-700' :
+                                                viewingTicket.status === 'in-progress' ? 'bg-blue-100 text-blue-700' :
+                                                'bg-orange-100 text-orange-700'
+                                            )
+                                        },
+                                            viewingTicket.status === 'completed' ? 'مكتمل' :
+                                            viewingTicket.status === 'in-progress' ? 'قيد التنفيذ' : 'قيد الانتظار'
+                                        )
+                                    ),
+                                    h('div', null,
+                                        h('label', { className: 'text-sm font-semibold text-gray-500 block mb-2' }, 'التاريخ'),
+                                        h('p', { className: 'font-semibold text-lg text-gray-900' }, viewingTicket.date)
+                                    )
+                                )
+                            )
+                        )
+                    ),<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
@@ -77,6 +176,127 @@
                     };
                     reader.readAsDataURL(file);
                 });
+            };
+
+            const importFile = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    try {
+                        let data = JSON.parse(ev.target.result);
+                        let importedTickets = [];
+                        
+                        const safeDate = (dateValue) => {
+                            if (!dateValue) return new Date().toISOString().split('T')[0];
+                            if (typeof dateValue === 'number') {
+                                const date = new Date(dateValue * 1000);
+                                return isNaN(date.getTime()) ? new Date().toISOString().split('T')[0] : date.toISOString().split('T')[0];
+                            }
+                            if (typeof dateValue === 'string') {
+                                if (/^\d{4}-\d{2}-\d{2}$/.test(dateValue)) return dateValue;
+                                const date = new Date(dateValue);
+                                return isNaN(date.getTime()) ? new Date().toISOString().split('T')[0] : date.toISOString().split('T')[0];
+                            }
+                            return new Date().toISOString().split('T')[0];
+                        };
+                        
+                        const extractTelegramText = (textArray) => {
+                            if (typeof textArray === 'string') return textArray;
+                            if (!Array.isArray(textArray)) return '';
+                            return textArray.map(item => {
+                                if (typeof item === 'string') return item;
+                                if (item && item.text) return item.text;
+                                return '';
+                            }).join('');
+                        };
+                        
+                        const parseTelegramMessage = (msg) => {
+                            const fullText = extractTelegramText(msg.text);
+                            
+                            let name = '';
+                            const nameMatch = fullText.match(/(?:اسم المشروع او الشركة|name|Name|الاسم|الشركة)[:\s]+(.+?)(?=\n(?:الروابط|link|Link|الرابط|التفاصيل|detail|http)|$)/is);
+                            if (nameMatch) {
+                                name = nameMatch[1].trim();
+                            } else {
+                                const lines = fullText.split('\n').filter(l => l.trim() && !l.trim().startsWith('#'));
+                                name = lines[0] ? lines[0].trim().substring(0, 100) : 'تذكرة مستوردة';
+                            }
+                            
+                            let link = '';
+                            const urlMatch = fullText.match(/(https?:\/\/[^\s\n]+)/i);
+                            if (urlMatch) link = urlMatch[1].trim();
+                            
+                            let details = '';
+                            const detailsMatch = fullText.match(/(?:التفاصيل|detail|Details|تفاصيل)[:\s]+(.+?)$/is);
+                            if (detailsMatch) {
+                                details = detailsMatch[1].trim();
+                            } else {
+                                details = fullText.replace(/^#\d+\s*\n?/, '').trim();
+                            }
+                            
+                            const attachments = [];
+                            if (msg.photo) attachments.push(msg.photo);
+                            if (msg.file) attachments.push(msg.file);
+                            
+                            return {
+                                name: name || 'تذكرة مستوردة',
+                                link: link,
+                                details: details || fullText,
+                                attachments: attachments,
+                                status: 'pending',
+                                date: safeDate(msg.date || msg.timestamp)
+                            };
+                        };
+                        
+                        if (Array.isArray(data)) {
+                            importedTickets = data.map(item => ({
+                                name: item.name || 'بدون عنوان',
+                                link: item.link || '',
+                                details: item.details || '',
+                                attachments: item.attachments || [],
+                                status: item.status || 'pending',
+                                date: safeDate(item.date || item.created_at || item.createdAt)
+                            }));
+                        } else if (data.messages && Array.isArray(data.messages)) {
+                            importedTickets = data.messages
+                                .filter(msg => msg.text)
+                                .map(parseTelegramMessage);
+                        } else if (data.tickets && Array.isArray(data.tickets)) {
+                            importedTickets = data.tickets.map(item => ({
+                                name: item.name || 'بدون عنوان',
+                                link: item.link || '',
+                                details: item.details || '',
+                                attachments: item.attachments || [],
+                                status: item.status || 'pending',
+                                date: safeDate(item.date)
+                            }));
+                        }
+                        
+                        if (importedTickets.length > 0) {
+                            const newTickets = importedTickets.map((item, i) => ({
+                                name: item.name || 'تذكرة بدون عنوان',
+                                link: item.link || '',
+                                details: item.details || '',
+                                attachments: item.attachments || [],
+                                status: item.status || 'pending',
+                                date: item.date,
+                                id: Date.now() + i * 100,
+                                ticketNumber: tickets.length + i + 1
+                            }));
+                            
+                            saveTickets([...tickets, ...newTickets]);
+                            setShowImportModal(false);
+                            alert('✅ تم استيراد ' + newTickets.length + ' تذكرة بنجاح!');
+                        } else {
+                            alert('⚠️ لم يتم العثور على تذاكر صالحة في الملف');
+                        }
+                    } catch (e) {
+                        console.error('خطأ في الاستيراد:', e);
+                        alert('❌ خطأ في الاستيراد: ' + e.message);
+                    }
+                };
+                reader.readAsText(file);
             };
 
             const exportJSON = () => {
