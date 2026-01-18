@@ -255,8 +255,8 @@
                     h('div', { className: 'max-w-7xl mx-auto px-4 py-4' },
                         h('div', { className: 'flex flex-col md:flex-row md:items-center md:justify-between gap-4' },
                             h('div', null,
-                                h('h1', { className: 'text-2xl font-bold text-gray-900' }, '🎫 نظام إدارة التذاكر'),
-                                h('p', { className: 'text-gray-500 text-sm' }, 'إدارة وتتبع التذاكر بكفاءة')
+                                h('h1', { className: 'text-2xl font-bold text-gray-900' }, '🎫 مشاكل منظومة ضمان'),
+                                h('p', { className: 'text-gray-500 text-sm' }, 'حالات فروقات')
                             ),
                             h('div', { className: 'flex flex-wrap gap-2' },
                                 h('button', { onClick: () => setIsAddingTicket(true), className: 'bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-700' }, '+ تذكرة جديدة'),
@@ -344,7 +344,7 @@
                     h('div', { className: 'bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto', onClick: e => e.stopPropagation() },
                         h('div', { className: 'p-6 border-b' }, h('h3', { className: 'text-xl font-bold' }, 'تعديل التذكرة #' + editingTicket.ticketNumber)),
                         h('div', { className: 'p-6 space-y-4' },
-                            h('div', null, h('label', { className: 'block text-sm font-semibold mb-2' }, 'اسم الشركة *'), h('input', { type: 'text', value: editingTicket.name, onChange: e => setEditingTicket(p => ({...p, name: e.target.value})), className: 'w-full px-4 py-3 border rounded-lg' })),
+                            h('div', null, h('label', { className: 'block text-sm font-semibold mb-2' }, ' اسم الشركة او المشروع*'), h('input', { type: 'text', value: editingTicket.name, onChange: e => setEditingTicket(p => ({...p, name: e.target.value})), className: 'w-full px-4 py-3 border rounded-lg' })),
                             h('div', null, h('label', { className: 'block text-sm font-semibold mb-2' }, 'الرابط'), h('input', { type: 'url', value: editingTicket.link, onChange: e => setEditingTicket(p => ({...p, link: e.target.value})), className: 'w-full px-4 py-3 border rounded-lg', dir: 'ltr' })),
                             h('div', null, h('label', { className: 'block text-sm font-semibold mb-2' }, 'التفاصيل *'), h('textarea', { value: editingTicket.details, onChange: e => setEditingTicket(p => ({...p, details: e.target.value})), rows: 4, className: 'w-full px-4 py-3 border rounded-lg resize-none' })),
                             h('div', null, h('label', { className: 'block text-sm font-semibold mb-2' }, 'الحالة'), h('select', { value: editingTicket.status, onChange: e => setEditingTicket(p => ({...p, status: e.target.value})), className: 'w-full px-4 py-3 border rounded-lg' }, h('option', { value: 'pending' }, 'قيد الانتظار'), h('option', { value: 'in-progress' }, 'قيد التنفيذ'), h('option', { value: 'completed' }, 'مكتمل'))),
@@ -397,7 +397,7 @@
                 // Import Modal
                 showImportModal && h('div', { className: 'fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4', onClick: () => setShowImportModal(false) },
                     h('div', { className: 'bg-white rounded-xl shadow-2xl max-w-md w-full', onClick: e => e.stopPropagation() },
-                        h('div', { className: 'p-6 border-b' }, h('h3', { className: 'text-xl font-bold' }, 'استيراد التذاكر')),
+                        h('div', { className: 'p-6 border-b' }, h('h3', { className: 'text-xl font-bold' }, 'استيراد')),
                         h('div', { className: 'p-6' },
                             h('p', { className: 'text-gray-600 mb-4' }, 'اختر ملف JSON للاستيراد'),
                             h('input', { type: 'file', accept: '.json', onChange: handleImport, className: 'w-full' }),
@@ -413,3 +413,4 @@
     </script>
 </body>
 </html>
+
