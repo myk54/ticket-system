@@ -14,15 +14,18 @@
 </head>
 <body>
     <div id="root"></div>
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.client.production.min.js"></script>
+    <script crossorigin src="https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js"></script>
 
     <script>
         const { useState, useEffect, createElement: h } = React;
         
         const SUPABASE_URL = 'https://dpffflftuydonufluwmx.supabase.co';
         const SUPABASE_ANON_KEY = 'sb_publishable_7IaPwDdiUmyD182o3RB7Cw_8Q18zCXu';
-        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const sb = window.supabase.createClient(
+  SUPABASE_URL,
+  SUPABASE_ANON_KEY
+);
         
         const getFileIcon = (filename) => {
             const ext = (filename || '').split('.').pop().toLowerCase();
@@ -93,7 +96,7 @@
                 setSaving(true);
                 try {
                     const num = tickets.length > 0 ? Math.max(...tickets.map(t => t.ticketNumber || 0)) + 1 : 1;
-                    const { error } = await supabase.from('tickets').insert([{
+                    const { error } = await sb.from('tickets').insert([{
                         ticket_number: num, name: currentTicket.name, link: currentTicket.link,
                         details: currentTicket.details, attachments: currentTicket.attachments,
                         status: currentTicket.status, date: currentTicket.date
@@ -108,7 +111,7 @@
             const updateTicket = async () => {
                 setSaving(true);
                 try {
-                    const { error } = await supabase.from('tickets').update({
+                    const { error } = await sb.from('tickets').update({
                         name: editingTicket.name, link: editingTicket.link, details: editingTicket.details,
                         attachments: editingTicket.attachments, status: editingTicket.status, date: editingTicket.date
                     }).eq('id', editingTicket.id);
@@ -123,7 +126,7 @@
                 try {
                     const ticket = tickets.find(t => t.id === id);
                     if (ticket?.attachments) for (const att of ticket.attachments) if (att.path) await deleteFile(att.path);
-                    const { error } = await supabase.from('tickets').delete().eq('id', id);
+                    const { error } = await sb.from('tickets').delete().eq('id', id);
                     if (error) throw error;
                     await fetchTickets();
                 } catch (e) { alert('خطأ: ' + e.message); }
@@ -133,7 +136,7 @@
                 if (!window.confirm('حذف الكل؟')) return;
                 try {
                     for (const t of tickets) if (t.attachments) for (const att of t.attachments) if (att.path) await deleteFile(att.path);
-                    await supabase.from('tickets').delete().neq('id', 0);
+                    await sb.from('tickets').delete().neq('id', 0);
                     setTickets([]);
                 } catch (e) { alert('خطأ: ' + e.message); }
             };
@@ -189,7 +192,7 @@
                         
                         setSaving(true);
                         const start = tickets.length ? Math.max(...tickets.map(t => t.ticketNumber || 0)) + 1 : 1;
-                        await supabase.from('tickets').insert(imported.map((t, i) => ({
+                        await sb.from('tickets').insert(imported.map((t, i) => ({
                             ticket_number: start + i, name: t.name, link: t.link, details: t.details,
                             attachments: t.attachments, status: t.status, date: t.date
                         })));
