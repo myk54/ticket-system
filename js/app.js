@@ -3,7 +3,7 @@
 // =============================================
 
 import { CONFIG } from './config.js';
-import { formatDate, parseTelegramMessage, extractTelegramText, detectDirection, getFileIcon, isImage, getTagById, generateTicketId, getNextSequenceNumber } from './utils.js';
+import { formatDate, parseTelegramMessage, extractTelegramText, detectDirection, getFileIcon, isImage, getTagById, generateTicketId, getNextTicketNumber } from './utils.js';
 import * as API from './api.js';
 import { TicketForm, TicketCard, Statistics, SearchFilter, Modal, Lightbox, Loading, EmptyState, TicketTableView, ViewModeToggle } from './components.js';
 import { Icon, ICON_NAMES } from './icons.js';
@@ -119,9 +119,8 @@ function App() {
     }
 
     function getNewTicketIdAndNumber() {
-        const nextSeq = getNextSequenceNumber(tickets);
-        const ticketId = generateTicketId(nextSeq);
-        const ticketNumber = tickets.length > 0 ? Math.max(...tickets.map(t => t.ticketNumber || 0)) + 1 : 1;
+        const ticketNumber = getNextTicketNumber(tickets);
+        const ticketId = generateTicketId(ticketNumber);
         return { ticketId, ticketNumber };
     }
 

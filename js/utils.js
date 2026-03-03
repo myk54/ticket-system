@@ -5,73 +5,23 @@
 import { CONFIG } from './config.js';
 
 /**
- * Generate unique Ticket ID
- * Format: TKT-YYYYMMDD-XXXX (e.g., TKT-20250303-0001)
- * @param {number} sequenceNumber - Daily sequence number
+ * Generate simple Ticket ID
+ * Format: #T0001, #T0002, etc.
+ * @param {number} number - Ticket number
  * @returns {string}
  */
-export const generateTicketId = (sequenceNumber = 1) => {
-    const date = new Date();
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const seq = String(sequenceNumber).padStart(4, '0');
-    
-    return `${CONFIG.TICKET_PREFIX}-${year}${month}${day}-${seq}`;
+export const generateTicketId = (number) => {
+    return `#T${String(number).padStart(4, '0')}`;
 };
 
 /**
- * Extract date part from Ticket ID
- * @param {string} ticketId 
- * @returns {string|null}
- */
-export const getTicketIdDate = (ticketId) => {
-    if (!ticketId) return null;
-    const match = ticketId.match(/\d{8}/);
-    return match ? match[0] : null;
-};
-
-/**
- * Extract sequence number from Ticket ID
- * @param {string} ticketId 
- * @returns {number}
- */
-export const getTicketIdSequence = (ticketId) => {
-    if (!ticketId) return 0;
-    const parts = ticketId.split('-');
-    return parts.length >= 3 ? parseInt(parts[2], 10) || 0 : 0;
-};
-
-/**
- * Calculate next sequence number for today
+ * Get next ticket number
  * @param {Array} tickets - Existing tickets
  * @returns {number}
  */
-export const getNextSequenceNumber = (tickets) => {
-    const today = new Date();
-    const todayStr = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`;
-    
-    let maxSeq = 0;
-    tickets.forEach(ticket => {
-        if (ticket.ticketId && ticket.ticketId.includes(todayStr)) {
-            const seq = getTicketIdSequence(ticket.ticketId);
-            if (seq > maxSeq) maxSeq = seq;
-        }
-    });
-    
-    return maxSeq + 1;
-};
-
-/**
- * Format Ticket ID for display (shortened version)
- * @param {string} ticketId 
- * @returns {string}
- */
-export const formatTicketIdShort = (ticketId) => {
-    if (!ticketId) return '#???';
-    // Extract just the sequence part for compact display
-    const seq = getTicketIdSequence(ticketId);
-    return `#${seq}`;
+export const getNextTicketNumber = (tickets) => {
+    if (!tickets || tickets.length === 0) return 1;
+    return Math.max(...tickets.map(t => t.ticketNumber || 0)) + 1;
 };
 
 /**
