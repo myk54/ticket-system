@@ -23,7 +23,8 @@ export const fetchTickets = async () => {
     
     return data.map(t => ({
         id: t.id,
-        ticketNumber: t.ticket_number,
+        ticketId: t.ticket_id || `TKT-${t.ticket_number || '0000'}`, // Fallback for old tickets
+        ticketNumber: t.ticket_number, // Keep for backward compatibility
         name: t.name,
         link: t.link || '',
         details: t.details,
@@ -37,13 +38,15 @@ export const fetchTickets = async () => {
 /**
  * Create a new ticket
  * @param {object} ticketData 
- * @param {number} ticketNumber 
+ * @param {string} ticketId - Unique ticket ID (e.g., TKT-20250303-0001)
+ * @param {number} ticketNumber - Legacy number for backward compatibility
  * @returns {Promise<object>}
  */
-export const createTicket = async (ticketData, ticketNumber) => {
+export const createTicket = async (ticketData, ticketId, ticketNumber) => {
     const { data, error } = await supabase
         .from('tickets')
         .insert([{
+            ticket_id: ticketId,
             ticket_number: ticketNumber,
             name: ticketData.name,
             link: ticketData.link,

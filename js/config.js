@@ -10,6 +10,9 @@ const CONFIG = {
     STORAGE_BUCKET: 'attachments',
     MAX_FILE_SIZE: 10 * 1024 * 1024, // 10MB
     
+    // Ticket ID settings
+    TICKET_PREFIX: 'TKT', // Prefix for ticket IDs (e.g., TKT-20250303-0001)
+    
     // Allowed file types for images
     IMAGE_EXTENSIONS: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'],
     

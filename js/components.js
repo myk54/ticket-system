@@ -136,7 +136,11 @@ export const TicketCard = ({
         // Header
         h('div', { className: 'bg-gradient-to-r from-slate-800 to-slate-900 p-4 flex justify-between items-center' },
             h('div', { className: 'flex items-center gap-3' },
-                h('div', { className: 'bg-white text-slate-900 w-11 h-11 rounded-xl flex items-center justify-center font-bold text-lg shadow-lg' }, ticket.ticketNumber),
+                h('div', { 
+                    className: 'bg-gradient-to-r from-blue-500 to-blue-600 text-white px-3 py-2 rounded-xl font-mono text-xs font-bold shadow-lg cursor-pointer hover:from-blue-600 hover:to-blue-700 transition-all',
+                    onClick: onView,
+                    title: ticket.ticketId || `#${ticket.ticketNumber}`
+                }, ticket.ticketId || `#${ticket.ticketNumber}`),
                 ticket.tags?.length > 0 && h('div', { className: 'flex gap-1' },
                     ticket.tags.map(tagId => {
                         const tag = getTagById(tagId);
@@ -407,7 +411,7 @@ export const TicketTableView = ({
                                 })
                             )
                         ),
-                        h(SortHeader, { field: 'ticketNumber', label: '#' }),
+                        h(SortHeader, { field: 'ticketId', label: 'رقم التذكرة' }),
                         h(SortHeader, { field: 'name', label: 'الشركة' }),
                         h(SortHeader, { field: 'status', label: 'الحالة' }),
                         h(SortHeader, { field: 'date', label: 'التاريخ' }),
@@ -438,9 +442,15 @@ export const TicketTableView = ({
                                     })
                                 )
                             ),
-                            // Number
+                            // Ticket ID
                             h('td', { className: 'px-4 py-3' },
-                                h('span', { className: 'bg-gray-100 text-gray-700 px-2 py-1 rounded-lg font-bold text-sm' }, ticket.ticketNumber)
+                                h('div', { className: 'flex flex-col' },
+                                    h('span', { 
+                                        className: 'bg-gradient-to-r from-blue-500 to-blue-600 text-white px-2.5 py-1 rounded-lg font-mono text-xs font-bold shadow-sm cursor-pointer hover:from-blue-600 hover:to-blue-700 transition-all',
+                                        onClick: () => onView(ticket),
+                                        title: ticket.ticketId || `#${ticket.ticketNumber}`
+                                    }, ticket.ticketId || `#${ticket.ticketNumber}`)
+                                )
                             ),
                             // Name
                             h('td', { className: 'px-4 py-3' },

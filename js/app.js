@@ -3,7 +3,7 @@
 // =============================================
 
 import { CONFIG } from './config.js';
-import { formatDate, parseTelegramMessage, extractTelegramText, detectDirection, getFileIcon, isImage, getTagById } from './utils.js';
+import { formatDate, parseTelegramMessage, extractTelegramText, detectDirection, getFileIcon, isImage, getTagById, generateTicketId, getNextSequenceNumber } from './utils.js';
 import * as API from './api.js';
 import { TicketForm, TicketCard, Statistics, SearchFilter, Modal, Lightbox, Loading, EmptyState, TicketTableView, ViewModeToggle } from './components.js';
 import { Icon, ICON_NAMES } from './icons.js';
@@ -82,10 +82,20 @@ function App() {
 
     function getFilteredTickets() {
         let filtered = tickets.filter(t => {
-            const matchSearch = (t.name || '').toLowerCase().includes(search.toLowerCase()) ||
-                               (t.details || '').toLowerCase().includes(search.toLowerCase());
+            const searchLower = search.toLowerCase().trim();
+            
+            // Search by ticket ID (exact or partial match)
+            const matchTicketId = (t.ticketId || '').toLowerCase().includes(searchLower) ||
+                                  String(t.ticketNumber || '').includes(searchLower);
+            
+            // Search by name and details
+            const matchContent = (t.name || '').toLowerCase().includes(searchLower) ||
+                                (t.details || '').toLowerCase().includes(searchLower);
+            
+            const matchSearch = searchLower === '' || matchTicketId || matchContent;
             const matchStatus = filterStatus === 'all' || t.status === filterStatus;
             const matchTag = filterTag === 'all' || (t.tags && t.tags.includes(filterTag));
+            
             return matchSearch && matchStatus && matchTag;
         });
         
@@ -94,9 +104,10 @@ function App() {
             let aVal = a[sortField] || '';
             let bVal = b[sortField] || '';
             
-            if (sortField === 'ticketNumber') {
-                aVal = Number(aVal) || 0;
-                bVal = Number(bVal) || 0;
+            if (sortField === 'ticketNumber' || sortField === 'ticketId') {
+                // Sort by sequence number extracted from ticketId
+                aVal = a.ticketNumber || 0;
+                bVal = b.ticketNumber || 0;
             }
             
             if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
@@ -107,8 +118,11 @@ function App() {
         return filtered;
     }
 
-    function getNextTicketNumber() {
-        return tickets.length > 0 ? Math.max(...tickets.map(t => t.ticketNumber || 0)) + 1 : 1;
+    function getNewTicketIdAndNumber() {
+        const nextSeq = getNextSequenceNumber(tickets);
+        const ticketId = generateTicketId(nextSeq);
+        const ticketNumber = tickets.length > 0 ? Math.max(...tickets.map(t => t.ticketNumber || 0)) + 1 : 1;
+        return { ticketId, ticketNumber };
     }
 
     // =============================================
@@ -136,7 +150,8 @@ function App() {
             if (editId) {
                 await API.updateTicket(editId, form);
             } else {
-                await API.createTicket(form, getNextTicketNumber());
+                const { ticketId, ticketNumber } = getNewTicketIdAndNumber();
+                await API.createTicket(form, ticketId, ticketNumber);
             }
             await loadTickets();
             resetForm();
@@ -570,26 +585,45 @@ function App() {
             viewTicket && h(Modal, {
                 show: true,
                 onClose: () => setViewTicket(null),
-                title: `تذكرة #${viewTicket.ticketNumber}`,
+                title: viewTicket.ticketId || `تذكرة #${viewTicket.ticketNumber}`,
                 size: 'lg'
             },
                 h('div', { className: 'space-y-5' },
+                    // Ticket ID Badge
+                    h('div', { className: 'flex items-center gap-3' },
+                        h('span', { 
+                            className: 'bg-gradient-to-r from-blue-500 to-blue-600 text-white px-4 py-2 rounded-xl font-mono text-sm font-bold shadow-lg'
+                        }, viewTicket.ticketId || `#${viewTicket.ticketNumber}`),
+                        h('span', { className: 'text-gray-400 text-sm' }, `تاريخ الإنشاء: ${viewTicket.date || '-'}`)
+                    ),
                     h('div', null,
-                        h('label', { className: 'text-sm font-bold text-gray-400 uppercase' }, '🏢 الشركة'),
+                        h('label', { className: 'flex items-center gap-2 text-sm font-bold text-gray-400 uppercase' },
+                            h(Icon, { name: ICON_NAMES.building, size: 14 }),
+                            'الشركة'
+                        ),
                         h('p', { className: 'text-xl font-bold text-gray-900 mt-1', dir: detectDirection(viewTicket.name) }, viewTicket.name)
                     ),
                     viewTicket.link && h('div', null,
-                        h('label', { className: 'text-sm font-bold text-gray-400 uppercase' }, '🔗 الرابط'),
+                        h('label', { className: 'flex items-center gap-2 text-sm font-bold text-gray-400 uppercase' },
+                            h(Icon, { name: ICON_NAMES.link, size: 14 }),
+                            'الرابط'
+                        ),
                         h('a', { href: viewTicket.link, target: '_blank', className: 'text-blue-600 hover:underline block mt-1 break-all', dir: 'ltr' }, viewTicket.link)
                     ),
                     h('div', null,
-                        h('label', { className: 'text-sm font-bold text-gray-400 uppercase' }, '📝 التفاصيل'),
+                        h('label', { className: 'flex items-center gap-2 text-sm font-bold text-gray-400 uppercase' },
+                            h(Icon, { name: ICON_NAMES.fileText, size: 14 }),
+                            'التفاصيل'
+                        ),
                         h('div', { className: 'bg-gray-50 rounded-xl p-5 mt-2 border' },
                             h('p', { className: 'text-gray-700 whitespace-pre-wrap leading-relaxed', dir: detectDirection(viewTicket.details) }, viewTicket.details || 'لا توجد')
                         )
                     ),
                     viewTicket.attachments?.length > 0 && h('div', null,
-                        h('label', { className: 'text-sm font-bold text-gray-400 uppercase' }, `📎 المرفقات (${viewTicket.attachments.length})`),
+                        h('label', { className: 'flex items-center gap-2 text-sm font-bold text-gray-400 uppercase' },
+                            h(Icon, { name: ICON_NAMES.paperclip, size: 14 }),
+                            `المرفقات (${viewTicket.attachments.length})`
+                        ),
                         h('div', { className: 'grid grid-cols-2 md:grid-cols-3 gap-4 mt-2' },
                             viewTicket.attachments.map((a, i) =>
                                 h('div', {
@@ -600,7 +634,7 @@ function App() {
                                     isImage(a.name)
                                         ? h('img', { src: a.url, className: 'w-full h-32 object-cover' })
                                         : h('div', { className: 'w-full h-32 bg-gray-100 flex flex-col items-center justify-center' },
-                                            h('span', { className: 'text-4xl' }, getFileIcon(a.name)),
+                                            h(Icon, { name: ICON_NAMES.file, size: 32, className: 'text-gray-400' }),
                                             h('span', { className: 'text-sm text-gray-600 mt-1' }, a.name)
                                         ),
                                     h('div', { className: 'p-2 bg-gray-50 text-center border-t' },
@@ -612,7 +646,10 @@ function App() {
                     ),
                     h('div', { className: 'grid grid-cols-2 gap-4 pt-4 border-t' },
                         h('div', null,
-                            h('label', { className: 'text-sm font-bold text-gray-400 uppercase' }, '📊 الحالة'),
+                            h('label', { className: 'flex items-center gap-2 text-sm font-bold text-gray-400 uppercase' },
+                                h(Icon, { name: ICON_NAMES.barChart, size: 14 }),
+                                'الحالة'
+                            ),
                             h('span', {
                                 className: `inline-block mt-1 px-4 py-2 rounded-lg font-semibold ${
                                     viewTicket.status === 'completed' ? 'bg-green-100 text-green-700' :
