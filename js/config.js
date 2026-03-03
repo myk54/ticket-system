@@ -22,9 +22,9 @@ const CONFIG = {
     
     // Status options
     STATUSES: [
-        { value: 'pending', label: 'انتظار', labelFull: 'قيد الانتظار', bgClass: 'bg-amber-100 text-amber-700', icon: 'Clock' },
-        { value: 'in-progress', label: 'تنفيذ', labelFull: 'قيد التنفيذ', bgClass: 'bg-blue-100 text-blue-700', icon: 'Refresh' },
-        { value: 'completed', label: 'مكتمل', labelFull: 'مكتمل', bgClass: 'bg-green-100 text-green-700', icon: 'CheckCircle' }
+        { value: 'pending', label: 'انتظار', labelFull: 'قيد الانتظار', bgClass: 'bg-amber-100 text-amber-700', icon: 'clock' },
+        { value: 'in-progress', label: 'تنفيذ', labelFull: 'قيد التنفيذ', bgClass: 'bg-blue-100 text-blue-700', icon: 'refresh-cw' },
+        { value: 'completed', label: 'مكتمل', labelFull: 'مكتمل', bgClass: 'bg-emerald-100 text-emerald-700', icon: 'check-circle' }
     ]
 };
 

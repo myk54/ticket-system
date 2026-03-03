@@ -6,12 +6,9 @@ import { CONFIG } from './config.js';
 import { formatDate, parseTelegramMessage, extractTelegramText, detectDirection, getFileIcon, isImage, getTagById } from './utils.js';
 import * as API from './api.js';
 import { TicketForm, TicketCard, Statistics, SearchFilter, Modal, Lightbox, Loading, EmptyState } from './components.js';
-import * as Icons from './icons.js';
+import { Icon, ICON_NAMES } from './icons.js';
 
 const { useState, useEffect, useRef, createElement: h } = React;
-
-// Helper to render icon
-const icon = (IconComponent, props = {}) => h(IconComponent, { size: 18, ...props });
 
 // =============================================
 // Main App Component
@@ -294,8 +291,8 @@ function App() {
             h('div', { className: 'glass rounded-2xl p-6 mb-6 shadow-lg' },
                 h('div', { className: 'flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6' },
                     h('div', { className: 'flex items-center gap-3' },
-                        h('div', { className: 'w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center' },
-                            icon(Icons.TicketIcon, { size: 24, className: 'text-white' })
+                        h('div', { className: 'w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg' },
+                            h(Icon, { name: ICON_NAMES.ticket, size: 24, className: 'text-white' })
                         ),
                         h('div', null,
                             h('h1', { className: 'text-2xl font-bold text-gray-900' }, 'نظام إدارة التذاكر'),
@@ -306,19 +303,19 @@ function App() {
                         h('button', {
                             onClick: () => { resetForm(); setShowAdd(true); },
                             className: 'btn-primary text-white px-4 py-2.5 rounded-xl font-semibold transition-all flex items-center gap-2'
-                        }, icon(Icons.PlusIcon, { size: 18 }), 'تذكرة جديدة'),
+                        }, h(Icon, { name: ICON_NAMES.plus, size: 18 }), 'تذكرة جديدة'),
                         h('button', {
                             onClick: () => setShowImport(true),
                             className: 'bg-gray-100 text-gray-700 px-4 py-2.5 rounded-xl font-semibold hover:bg-gray-200 transition-all flex items-center gap-2'
-                        }, icon(Icons.DownloadIcon, { size: 18 }), 'استيراد'),
+                        }, h(Icon, { name: ICON_NAMES.download, size: 18 }), 'استيراد'),
                         h('button', {
                             onClick: handleExport,
                             className: 'bg-gray-100 text-gray-700 px-4 py-2.5 rounded-xl font-semibold hover:bg-gray-200 transition-all flex items-center gap-2'
-                        }, icon(Icons.UploadIcon, { size: 18 }), 'تصدير'),
+                        }, h(Icon, { name: ICON_NAMES.upload, size: 18 }), 'تصدير'),
                         tickets.length > 0 && h('button', {
                             onClick: handleDeleteAll,
                             className: 'bg-red-50 text-red-600 px-4 py-2.5 rounded-xl font-semibold hover:bg-red-100 transition-all flex items-center gap-2'
-                        }, icon(Icons.TrashIcon, { size: 18 }), 'حذف الكل')
+                        }, h(Icon, { name: ICON_NAMES.trash, size: 18 }), 'حذف الكل')
                     )
                 ),
                 h(Statistics, { stats })
