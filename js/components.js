@@ -281,7 +281,7 @@ export const SearchFilter = ({ search, setSearch, filterStatus, setFilterStatus,
 // =============================================
 export const Modal = ({ show, onClose, title, children, size = 'md' }) => {
     if (!show) return null;
-    const sizeClasses = { sm: 'max-w-md', md: 'max-w-2xl', lg: 'max-w-3xl', xl: 'max-w-4xl' };
+    const sizeClasses = { sm: 'max-w-md', md: 'max-w-2xl', lg: 'max-w-3xl', xl: 'max-w-4xl', full: 'max-w-7xl' };
     
     return h('div', { className: 'fixed inset-0 modal-overlay flex items-center justify-center z-50 p-4', onClick: onClose },
         h('div', { className: `bg-white rounded-2xl shadow-2xl ${sizeClasses[size]} w-full max-h-[90vh] overflow-y-auto scrollbar animate-in`, onClick: e => e.stopPropagation() },
@@ -323,3 +323,247 @@ export const EmptyState = () => h('div', { className: 'text-center py-20' },
     h('p', { className: 'text-xl text-gray-500 font-medium' }, 'لا توجد تذاكر'),
     h('p', { className: 'text-gray-400 mt-1' }, 'أضف تذكرة جديدة للبدء')
 );
+
+// =============================================
+// Table View Component
+// =============================================
+export const TicketTableView = ({
+    tickets,
+    selectedIds,
+    onSelectOne,
+    onSelectAll,
+    onView,
+    onEdit,
+    onDelete,
+    onBulkDelete,
+    onBulkStatusChange,
+    sortField,
+    sortDirection,
+    onSort,
+    currentPage,
+    pageSize,
+    onPageChange,
+    onPageSizeChange
+}) => {
+    const totalPages = Math.ceil(tickets.length / pageSize);
+    const startIndex = (currentPage - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+    const paginatedTickets = tickets.slice(startIndex, endIndex);
+    const allSelected = paginatedTickets.length > 0 && paginatedTickets.every(t => selectedIds.includes(t.id));
+    const someSelected = selectedIds.length > 0 && !allSelected;
+    
+    // Sort header component
+    const SortHeader = ({ field, label }) => h('th', {
+        className: 'px-4 py-3 text-right font-semibold text-gray-600 cursor-pointer hover:bg-gray-100 transition-all select-none',
+        onClick: () => onSort(field)
+    },
+        h('div', { className: 'flex items-center gap-1' },
+            label,
+            h(Icon, { 
+                name: sortField === field 
+                    ? (sortDirection === 'asc' ? ICON_NAMES.chevronUp : ICON_NAMES.chevronDown) 
+                    : ICON_NAMES.arrowUpDown, 
+                size: 14, 
+                className: sortField === field ? 'text-blue-500' : 'text-gray-400' 
+            })
+        )
+    );
+    
+    return h('div', { className: 'glass rounded-2xl shadow-lg overflow-hidden' },
+        // Bulk Actions Bar
+        selectedIds.length > 0 && h('div', { className: 'bg-blue-50 border-b border-blue-100 px-4 py-3 flex items-center justify-between' },
+            h('span', { className: 'text-blue-700 font-medium' }, `تم تحديد ${selectedIds.length} تذكرة`),
+            h('div', { className: 'flex gap-2' },
+                h('select', {
+                    onChange: e => e.target.value && onBulkStatusChange(e.target.value),
+                    className: 'px-3 py-1.5 rounded-lg border border-blue-200 bg-white text-sm focus:outline-none focus:border-blue-400',
+                    defaultValue: ''
+                },
+                    h('option', { value: '', disabled: true }, 'تغيير الحالة'),
+                    CONFIG.STATUSES.map(s => h('option', { key: s.value, value: s.value }, s.label))
+                ),
+                h('button', {
+                    onClick: onBulkDelete,
+                    className: 'px-3 py-1.5 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600 transition-all flex items-center gap-1'
+                }, h(Icon, { name: ICON_NAMES.trash, size: 14 }), 'حذف المحدد')
+            )
+        ),
+        
+        // Table
+        h('div', { className: 'overflow-x-auto' },
+            h('table', { className: 'w-full' },
+                // Header
+                h('thead', { className: 'bg-gray-50 border-b border-gray-200' },
+                    h('tr', null,
+                        h('th', { className: 'px-4 py-3 w-12' },
+                            h('button', {
+                                onClick: () => onSelectAll(paginatedTickets),
+                                className: 'p-1 rounded hover:bg-gray-200 transition-all'
+                            },
+                                h(Icon, { 
+                                    name: allSelected ? ICON_NAMES.checkSquare : (someSelected ? ICON_NAMES.minusSquare : ICON_NAMES.square), 
+                                    size: 18, 
+                                    className: allSelected || someSelected ? 'text-blue-500' : 'text-gray-400' 
+                                })
+                            )
+                        ),
+                        h(SortHeader, { field: 'ticketNumber', label: '#' }),
+                        h(SortHeader, { field: 'name', label: 'الشركة' }),
+                        h(SortHeader, { field: 'status', label: 'الحالة' }),
+                        h(SortHeader, { field: 'date', label: 'التاريخ' }),
+                        h('th', { className: 'px-4 py-3 text-right font-semibold text-gray-600' }, 'التصنيف'),
+                        h('th', { className: 'px-4 py-3 text-right font-semibold text-gray-600' }, 'المرفقات'),
+                        h('th', { className: 'px-4 py-3 text-center font-semibold text-gray-600 w-32' }, 'الإجراءات')
+                    )
+                ),
+                // Body
+                h('tbody', { className: 'divide-y divide-gray-100' },
+                    paginatedTickets.map(ticket => {
+                        const statusInfo = getStatusInfo(ticket.status);
+                        const isSelected = selectedIds.includes(ticket.id);
+                        return h('tr', { 
+                            key: ticket.id, 
+                            className: `hover:bg-gray-50 transition-all ${isSelected ? 'bg-blue-50' : ''}`
+                        },
+                            // Checkbox
+                            h('td', { className: 'px-4 py-3' },
+                                h('button', {
+                                    onClick: () => onSelectOne(ticket.id),
+                                    className: 'p-1 rounded hover:bg-gray-200 transition-all'
+                                },
+                                    h(Icon, { 
+                                        name: isSelected ? ICON_NAMES.checkSquare : ICON_NAMES.square, 
+                                        size: 18, 
+                                        className: isSelected ? 'text-blue-500' : 'text-gray-400' 
+                                    })
+                                )
+                            ),
+                            // Number
+                            h('td', { className: 'px-4 py-3' },
+                                h('span', { className: 'bg-gray-100 text-gray-700 px-2 py-1 rounded-lg font-bold text-sm' }, ticket.ticketNumber)
+                            ),
+                            // Name
+                            h('td', { className: 'px-4 py-3' },
+                                h('div', { className: 'font-medium text-gray-900', dir: detectDirection(ticket.name) }, truncateText(ticket.name, 40)),
+                                ticket.link && h('a', { 
+                                    href: ticket.link, 
+                                    target: '_blank', 
+                                    rel: 'noopener',
+                                    className: 'text-xs text-blue-500 hover:underline flex items-center gap-1 mt-0.5',
+                                    onClick: e => e.stopPropagation()
+                                }, 
+                                    h(Icon, { name: ICON_NAMES.externalLink, size: 10 }),
+                                    truncateText(ticket.link, 30)
+                                )
+                            ),
+                            // Status
+                            h('td', { className: 'px-4 py-3' },
+                                h('span', { className: `inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold ${statusInfo.bgClass}` },
+                                    h(Icon, { name: statusInfo.icon, size: 12 }),
+                                    statusInfo.label
+                                )
+                            ),
+                            // Date
+                            h('td', { className: 'px-4 py-3 text-sm text-gray-600' }, ticket.date || '-'),
+                            // Tags
+                            h('td', { className: 'px-4 py-3' },
+                                ticket.tags?.length > 0 
+                                    ? h('div', { className: 'flex gap-1 flex-wrap' },
+                                        ticket.tags.map(tagId => {
+                                            const tag = getTagById(tagId);
+                                            return tag && h('span', { key: tagId, className: `${tag.color} text-white text-xs px-2 py-0.5 rounded-full` }, tag.name);
+                                        })
+                                    )
+                                    : h('span', { className: 'text-gray-400 text-sm' }, '-')
+                            ),
+                            // Attachments
+                            h('td', { className: 'px-4 py-3' },
+                                ticket.attachments?.length > 0 
+                                    ? h('span', { className: 'flex items-center gap-1 text-sm text-gray-600' },
+                                        h(Icon, { name: ICON_NAMES.paperclip, size: 14 }),
+                                        ticket.attachments.length
+                                    )
+                                    : h('span', { className: 'text-gray-400 text-sm' }, '-')
+                            ),
+                            // Actions
+                            h('td', { className: 'px-4 py-3' },
+                                h('div', { className: 'flex items-center justify-center gap-1' },
+                                    h('button', { onClick: () => onView(ticket), className: 'p-1.5 text-gray-500 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-all', title: 'معاينة' },
+                                        h(Icon, { name: ICON_NAMES.eye, size: 16 })
+                                    ),
+                                    h('button', { onClick: () => onEdit(ticket), className: 'p-1.5 text-gray-500 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-all', title: 'تعديل' },
+                                        h(Icon, { name: ICON_NAMES.edit, size: 16 })
+                                    ),
+                                    h('button', { onClick: () => onDelete(ticket.id), className: 'p-1.5 text-gray-500 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all', title: 'حذف' },
+                                        h(Icon, { name: ICON_NAMES.trash, size: 16 })
+                                    )
+                                )
+                            )
+                        );
+                    })
+                )
+            )
+        ),
+        
+        // Pagination
+        h('div', { className: 'bg-gray-50 border-t border-gray-200 px-4 py-3 flex items-center justify-between' },
+            // Page size selector
+            h('div', { className: 'flex items-center gap-2' },
+                h('span', { className: 'text-sm text-gray-600' }, 'عرض'),
+                h('select', {
+                    value: pageSize,
+                    onChange: e => onPageSizeChange(Number(e.target.value)),
+                    className: 'px-2 py-1 rounded-lg border border-gray-200 bg-white text-sm focus:outline-none focus:border-blue-400'
+                },
+                    [10, 25, 50, 100].map(size => h('option', { key: size, value: size }, size))
+                ),
+                h('span', { className: 'text-sm text-gray-600' }, `من ${tickets.length} تذكرة`)
+            ),
+            
+            // Page info
+            h('div', { className: 'text-sm text-gray-600' },
+                `صفحة ${currentPage} من ${totalPages || 1}`
+            ),
+            
+            // Navigation buttons
+            h('div', { className: 'flex items-center gap-1' },
+                h('button', {
+                    onClick: () => onPageChange(1),
+                    disabled: currentPage === 1,
+                    className: 'p-1.5 rounded-lg border border-gray-200 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all'
+                }, h(Icon, { name: ICON_NAMES.chevronsRight, size: 16 })),
+                h('button', {
+                    onClick: () => onPageChange(currentPage - 1),
+                    disabled: currentPage === 1,
+                    className: 'p-1.5 rounded-lg border border-gray-200 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all'
+                }, h(Icon, { name: ICON_NAMES.chevronRight, size: 16 })),
+                h('button', {
+                    onClick: () => onPageChange(currentPage + 1),
+                    disabled: currentPage >= totalPages,
+                    className: 'p-1.5 rounded-lg border border-gray-200 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all'
+                }, h(Icon, { name: ICON_NAMES.chevronLeft, size: 16 })),
+                h('button', {
+                    onClick: () => onPageChange(totalPages),
+                    disabled: currentPage >= totalPages,
+                    className: 'p-1.5 rounded-lg border border-gray-200 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all'
+                }, h(Icon, { name: ICON_NAMES.chevronsLeft, size: 16 }))
+            )
+        )
+    );
+};
+
+// =============================================
+// View Mode Toggle Component
+// =============================================
+export const ViewModeToggle = ({ viewMode, onViewModeChange }) => {
+    return h('div', { className: 'flex items-center gap-1 bg-gray-100 p-1 rounded-xl' },
+        h('button', {
+            onClick: () => onViewModeChange('cards'),
+            className: `p-2 rounded-lg transition-all ${viewMode === 'cards' ? 'bg-white shadow text-blue-500' : 'text-gray-500 hover:text-gray-700'}`
+        }, h(Icon, { name: ICON_NAMES.layoutGrid, size: 18 })),
+        h('button', {
+            onClick: () => onViewModeChange('table'),
+            className: `p-2 rounded-lg transition-all ${viewMode === 'table' ? 'bg-white shadow text-blue-500' : 'text-gray-500 hover:text-gray-700'}`
+        }, h(Icon, { name: ICON_NAMES.table, size: 18 }))
+    );
+};

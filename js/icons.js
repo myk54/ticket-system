@@ -21,6 +21,25 @@ const ICON_PATHS = {
     download: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3',
     upload: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12',
     
+    // Chevrons & Arrows
+    'chevron-up': 'M18 15l-6-6-6 6',
+    'chevron-down': 'M6 9l6 6 6-6',
+    'chevron-left': 'M15 18l-6-6 6-6',
+    'chevron-right': 'M9 18l6-6-6-6',
+    'chevrons-left': 'M11 17l-5-5 5-5M18 17l-5-5 5-5',
+    'chevrons-right': 'M13 17l5-5-5-5M6 17l5-5-5-5',
+    'arrow-up-down': 'M11 17l-4 4-4-4M7 21V9M21 7l-4-4-4 4M17 3v12',
+    
+    // View modes
+    'layout-grid': 'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z',
+    'layout-list': 'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01',
+    table: 'M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2V9M9 21H5a2 2 0 0 1-2-2V9m0 0h18',
+    
+    // Selection
+    square: 'M3 3h18v18H3z',
+    'check-square': 'M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11',
+    'minus-square': 'M3 3h18v18H3zM8 12h8',
+    
     // Content
     'building-2': 'M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18ZM6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2M10 6h4M10 10h4M10 14h4M10 18h4',
     link: 'M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71',
@@ -30,6 +49,7 @@ const ICON_PATHS = {
     paperclip: 'M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48',
     folder: 'M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z',
     'folder-open': 'M6 14l1.45-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6a2 2 0 0 1-1.94 1.5H4a2 2 0 0 1-2-2V5c0-1.1.9-2 2-2h3.93a2 2 0 0 1 1.66.9l.82 1.2a2 2 0 0 0 1.66.9H18a2 2 0 0 1 2 2v2',
+    'external-link': 'M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3',
     
     // Status
     clock: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20ZM12 6v6l4 2',
@@ -39,6 +59,7 @@ const ICON_PATHS = {
     
     // Stats
     'bar-chart-3': 'M3 3v18h18M18 17V9M13 17V5M8 17v-3',
+    ticket: 'M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2ZM13 5v2M13 17v2M13 11v2',
     inbox: 'M22 12h-6l-2 3H10l-2-3H2M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11Z',
     
     // Files
@@ -86,6 +107,7 @@ export const ICON_NAMES = {
     paperclip: 'paperclip',
     folder: 'folder',
     folderOpen: 'folder-open',
+    externalLink: 'external-link',
     clock: 'clock',
     loader: 'loader-2',
     refresh: 'refresh-cw',
@@ -94,5 +116,19 @@ export const ICON_NAMES = {
     ticket: 'ticket',
     inbox: 'inbox',
     image: 'image',
-    file: 'file'
+    file: 'file',
+    // New icons for table view
+    chevronUp: 'chevron-up',
+    chevronDown: 'chevron-down',
+    chevronLeft: 'chevron-left',
+    chevronRight: 'chevron-right',
+    chevronsLeft: 'chevrons-left',
+    chevronsRight: 'chevrons-right',
+    arrowUpDown: 'arrow-up-down',
+    layoutGrid: 'layout-grid',
+    layoutList: 'layout-list',
+    table: 'table',
+    square: 'square',
+    checkSquare: 'check-square',
+    minusSquare: 'minus-square'
 };

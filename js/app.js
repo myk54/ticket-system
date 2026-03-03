@@ -5,7 +5,7 @@
 import { CONFIG } from './config.js';
 import { formatDate, parseTelegramMessage, extractTelegramText, detectDirection, getFileIcon, isImage, getTagById } from './utils.js';
 import * as API from './api.js';
-import { TicketForm, TicketCard, Statistics, SearchFilter, Modal, Lightbox, Loading, EmptyState } from './components.js';
+import { TicketForm, TicketCard, Statistics, SearchFilter, Modal, Lightbox, Loading, EmptyState, TicketTableView, ViewModeToggle } from './components.js';
 import { Icon, ICON_NAMES } from './icons.js';
 
 const { useState, useEffect, useRef, createElement: h } = React;
@@ -23,12 +23,21 @@ function App() {
     const [filterTag, setFilterTag] = useState('all');
     const [showImport, setShowImport] = useState(false);
     const [showAdd, setShowAdd] = useState(false);
+    const [showEditModal, setShowEditModal] = useState(false);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [uploading, setUploading] = useState(false);
     const [lightbox, setLightbox] = useState(null);
     const [form, setForm] = useState(getEmptyForm());
     const editRef = useRef(null);
+    
+    // Table view state
+    const [viewMode, setViewMode] = useState('table'); // 'cards' or 'table'
+    const [selectedIds, setSelectedIds] = useState([]);
+    const [sortField, setSortField] = useState('ticketNumber');
+    const [sortDirection, setSortDirection] = useState('desc');
+    const [currentPage, setCurrentPage] = useState(1);
+    const [pageSize, setPageSize] = useState(25);
 
     // =============================================
     // Effects
@@ -72,13 +81,30 @@ function App() {
     }
 
     function getFilteredTickets() {
-        return tickets.filter(t => {
+        let filtered = tickets.filter(t => {
             const matchSearch = (t.name || '').toLowerCase().includes(search.toLowerCase()) ||
                                (t.details || '').toLowerCase().includes(search.toLowerCase());
             const matchStatus = filterStatus === 'all' || t.status === filterStatus;
             const matchTag = filterTag === 'all' || (t.tags && t.tags.includes(filterTag));
             return matchSearch && matchStatus && matchTag;
         });
+        
+        // Sort
+        filtered.sort((a, b) => {
+            let aVal = a[sortField] || '';
+            let bVal = b[sortField] || '';
+            
+            if (sortField === 'ticketNumber') {
+                aVal = Number(aVal) || 0;
+                bVal = Number(bVal) || 0;
+            }
+            
+            if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
+            if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
+            return 0;
+        });
+        
+        return filtered;
     }
 
     function getNextTicketNumber() {
@@ -115,6 +141,7 @@ function App() {
             await loadTickets();
             resetForm();
             setShowAdd(false);
+            setShowEditModal(false);
             setEditId(null);
         } catch (e) {
             alert('خطأ في الحفظ: ' + e.message);
@@ -262,11 +289,15 @@ function App() {
             tags: ticket.tags || []
         });
         setEditId(ticket.id);
+        if (viewMode === 'table') {
+            setShowEditModal(true);
+        }
     }
 
     function cancelEdit() {
         resetForm();
         setEditId(null);
+        setShowEditModal(false);
     }
 
     function toggleTag(tagId) {
@@ -276,6 +307,88 @@ function App() {
                 ? p.tags.filter(t => t !== tagId)
                 : [...p.tags, tagId]
         }));
+    }
+
+    // =============================================
+    // Table View Operations
+    // =============================================
+    function handleSelectOne(id) {
+        setSelectedIds(prev => 
+            prev.includes(id) 
+                ? prev.filter(i => i !== id) 
+                : [...prev, id]
+        );
+    }
+
+    function handleSelectAll(pageTickets) {
+        const pageIds = pageTickets.map(t => t.id);
+        const allSelected = pageIds.every(id => selectedIds.includes(id));
+        
+        if (allSelected) {
+            setSelectedIds(prev => prev.filter(id => !pageIds.includes(id)));
+        } else {
+            setSelectedIds(prev => [...new Set([...prev, ...pageIds])]);
+        }
+    }
+
+    function handleSort(field) {
+        if (sortField === field) {
+            setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+        } else {
+            setSortField(field);
+            setSortDirection('asc');
+        }
+    }
+
+    async function handleBulkDelete() {
+        if (selectedIds.length === 0) return;
+        if (!confirm(`هل تريد حذف ${selectedIds.length} تذكرة؟`)) return;
+        
+        setSaving(true);
+        try {
+            for (const id of selectedIds) {
+                const ticket = tickets.find(t => t.id === id);
+                if (ticket?.attachments?.length) {
+                    const paths = ticket.attachments.map(a => a.path).filter(Boolean);
+                    if (paths.length) await API.deleteMultipleFiles(paths);
+                }
+                await API.deleteTicket(id);
+            }
+            setSelectedIds([]);
+            await loadTickets();
+        } catch (e) {
+            alert('خطأ في الحذف: ' + e.message);
+        } finally {
+            setSaving(false);
+        }
+    }
+
+    async function handleBulkStatusChange(newStatus) {
+        if (selectedIds.length === 0) return;
+        
+        setSaving(true);
+        try {
+            for (const id of selectedIds) {
+                await API.updateTicket(id, { status: newStatus });
+            }
+            setSelectedIds([]);
+            await loadTickets();
+        } catch (e) {
+            alert('خطأ في تحديث الحالة: ' + e.message);
+        } finally {
+            setSaving(false);
+        }
+    }
+
+    function handlePageChange(page) {
+        setCurrentPage(page);
+        setSelectedIds([]); // Clear selection when changing page
+    }
+
+    function handlePageSizeChange(size) {
+        setPageSize(size);
+        setCurrentPage(1);
+        setSelectedIds([]);
     }
 
     // =============================================
@@ -321,14 +434,66 @@ function App() {
                 h(Statistics, { stats })
             ),
 
-            // Search & Filter
-            h(SearchFilter, { search, setSearch, filterStatus, setFilterStatus, filterTag, setFilterTag }),
+            // Search & Filter with View Toggle
+            h('div', { className: 'glass rounded-xl p-4 mb-6 shadow' },
+                h('div', { className: 'flex flex-col md:flex-row gap-3' },
+                    h('div', { className: 'flex-1 relative' },
+                        h('span', { className: 'absolute right-3 top-1/2 -translate-y-1/2 text-gray-400' },
+                            h(Icon, { name: ICON_NAMES.search, size: 18 })
+                        ),
+                        h('input', { 
+                            type: 'text', 
+                            value: search, 
+                            onChange: e => { setSearch(e.target.value); setCurrentPage(1); }, 
+                            placeholder: 'بحث فوري...', 
+                            className: 'w-full pr-10 pl-4 py-3 rounded-xl border-2 border-gray-200 focus:border-blue-500 outline-none' 
+                        })
+                    ),
+                    h('select', { 
+                        value: filterStatus, 
+                        onChange: e => { setFilterStatus(e.target.value); setCurrentPage(1); }, 
+                        className: 'px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-blue-500 outline-none bg-white' 
+                    },
+                        h('option', { value: 'all' }, 'كل الحالات'),
+                        CONFIG.STATUSES.map(s => h('option', { key: s.value, value: s.value }, s.label))
+                    ),
+                    h('select', { 
+                        value: filterTag, 
+                        onChange: e => { setFilterTag(e.target.value); setCurrentPage(1); }, 
+                        className: 'px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-blue-500 outline-none bg-white' 
+                    },
+                        h('option', { value: 'all' }, 'كل التصنيفات'),
+                        CONFIG.TAGS.map(tag => h('option', { key: tag.id, value: tag.id }, tag.name))
+                    ),
+                    h(ViewModeToggle, { viewMode, onViewModeChange: setViewMode })
+                )
+            ),
 
             // Loading
             loading && h(Loading),
 
-            // Tickets Grid
-            !loading && filtered.length > 0 && h('div', { className: 'grid grid-cols-1 lg:grid-cols-2 gap-6' },
+            // Table View
+            !loading && filtered.length > 0 && viewMode === 'table' && h(TicketTableView, {
+                tickets: filtered,
+                selectedIds,
+                onSelectOne: handleSelectOne,
+                onSelectAll: handleSelectAll,
+                onView: ticket => setViewTicket(ticket),
+                onEdit: ticket => startEdit(ticket),
+                onDelete: handleDeleteTicket,
+                onBulkDelete: handleBulkDelete,
+                onBulkStatusChange: handleBulkStatusChange,
+                sortField,
+                sortDirection,
+                onSort: handleSort,
+                currentPage,
+                pageSize,
+                onPageChange: handlePageChange,
+                onPageSizeChange: handlePageSizeChange
+            }),
+
+            // Cards View
+            !loading && filtered.length > 0 && viewMode === 'cards' && h('div', { className: 'grid grid-cols-1 lg:grid-cols-2 gap-6' },
                 filtered.map(ticket =>
                     h(TicketCard, {
                         key: ticket.id,
@@ -374,6 +539,29 @@ function App() {
                     onToggleTag: toggleTag,
                     setLightbox,
                     isEdit: false,
+                    isModal: true
+                })
+            ),
+
+            // Edit Modal (for table view)
+            h(Modal, {
+                show: showEditModal,
+                onClose: () => !saving && cancelEdit(),
+                title: '✏️ تعديل التذكرة',
+                size: 'md'
+            },
+                h(TicketForm, {
+                    form,
+                    setForm,
+                    onSave: saveTicket,
+                    onCancel: cancelEdit,
+                    saving,
+                    uploading,
+                    onFileUpload: handleFileUpload,
+                    onRemoveAttachment: handleRemoveAttachment,
+                    onToggleTag: toggleTag,
+                    setLightbox,
+                    isEdit: true,
                     isModal: true
                 })
             ),
