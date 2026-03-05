@@ -5,8 +5,12 @@
 import { CONFIG } from './config.js';
 import { formatDate, parseTelegramMessage, extractTelegramText, detectDirection, getFileIcon, isImage, getTagById, generateTicketId, getNextTicketNumber } from './utils.js';
 import * as API from './api.js';
+import * as Auth from './auth.js';
 import { TicketForm, TicketCard, Statistics, SearchFilter, Modal, Lightbox, Loading, EmptyState, TicketTableView, ViewModeToggle } from './components.js';
+import { LoginForm } from './LoginForm.js';
+import { UserManagementPanel } from './UserManagement.js';
 import { Icon, ICON_NAMES } from './icons.js';
+import { ROLES, ROLE_NAMES, ROLE_COLORS, hasPermission, canViewTicket, canEditTicket, canDeleteTicket, canAssignTicket, canManageUsers, isAdmin, PERMISSIONS, getAllowedTransitions } from './permissions.js';
 
 const { useState, useEffect, useRef, createElement: h } = React;
 
@@ -14,7 +18,16 @@ const { useState, useEffect, useRef, createElement: h } = React;
 // Main App Component
 // =============================================
 function App() {
-    // State
+    // Auth State
+    const [user, setUser] = useState(null);
+    const [userProfile, setUserProfile] = useState(null);
+    const [authLoading, setAuthLoading] = useState(true);
+    const [authError, setAuthError] = useState('');
+    const [users, setUsers] = useState([]);
+    const [roles, setRoles] = useState([]);
+    const [showUserManagement, setShowUserManagement] = useState(false);
+
+    // Tickets State
     const [tickets, setTickets] = useState([]);
     const [editId, setEditId] = useState(null);
     const [viewTicket, setViewTicket] = useState(null);
@@ -39,18 +52,114 @@ function App() {
     const [currentPage, setCurrentPage] = useState(1);
     const [pageSize, setPageSize] = useState(25);
 
+    // Get current user role
+    const userRole = userProfile?.roles?.name || null;
+
     // =============================================
-    // Effects
+    // Auth Effects
     // =============================================
     useEffect(() => {
-        loadTickets();
+        checkAuth();
+        
+        // Listen to auth changes
+        const { data: { subscription } } = Auth.onAuthStateChange((event, session) => {
+            if (event === 'SIGNED_OUT') {
+                setUser(null);
+                setUserProfile(null);
+            }
+        });
+
+        return () => subscription?.unsubscribe();
     }, []);
+
+    useEffect(() => {
+        if (user && userProfile) {
+            loadTickets();
+            if (isAdmin(userRole)) {
+                loadUsers();
+                loadRoles();
+            }
+        }
+    }, [user, userProfile]);
 
     useEffect(() => {
         if (editId && editRef.current) {
             editRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
     }, [editId]);
+
+    // =============================================
+    // Auth Functions
+    // =============================================
+    async function checkAuth() {
+        setAuthLoading(true);
+        try {
+            const session = await Auth.getSession();
+            if (session?.user) {
+                setUser(session.user);
+                // User profile is already in session for simple auth
+                setUserProfile({
+                    id: session.user.id,
+                    full_name: session.user.full_name,
+                    username: session.user.username,
+                    roles: { name: session.user.role, display_name: session.user.role_display }
+                });
+            }
+        } catch (e) {
+            console.error('Auth check error:', e);
+        } finally {
+            setAuthLoading(false);
+        }
+    }
+
+    async function handleLogin(username, password) {
+        setAuthLoading(true);
+        setAuthError('');
+        try {
+            const { user: authUser } = await Auth.signIn(username, password);
+            setUser(authUser);
+            setUserProfile({
+                id: authUser.id,
+                full_name: authUser.full_name,
+                username: authUser.username,
+                roles: { name: authUser.role, display_name: authUser.role_display }
+            });
+        } catch (e) {
+            setAuthError(e.message);
+        } finally {
+            setAuthLoading(false);
+        }
+    }
+
+    async function handleLogout() {
+        if (!confirm('تسجيل الخروج؟')) return;
+        try {
+            await Auth.signOut();
+            setUser(null);
+            setUserProfile(null);
+            setTickets([]);
+        } catch (e) {
+            alert('خطأ: ' + e.message);
+        }
+    }
+
+    async function loadUsers() {
+        try {
+            const data = await Auth.getAllUsers();
+            setUsers(data);
+        } catch (e) {
+            console.error('Error loading users:', e);
+        }
+    }
+
+    async function loadRoles() {
+        try {
+            const data = await Auth.getRoles();
+            setRoles(data);
+        } catch (e) {
+            console.error('Error loading roles:', e);
+        }
+    }
 
     // =============================================
     // Helper Functions
@@ -408,6 +517,26 @@ function App() {
     // =============================================
     // Render
     // =============================================
+    
+    // Show loading while checking auth
+    if (authLoading) {
+        return h('div', { className: 'min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900' },
+            h('div', { className: 'text-center' },
+                h(Icon, { name: ICON_NAMES.loader, size: 48, className: 'text-blue-400 animate-spin mx-auto' }),
+                h('p', { className: 'text-blue-200 mt-4' }, 'جاري التحميل...')
+            )
+        );
+    }
+
+    // Show login if not authenticated
+    if (!user || !userProfile) {
+        return h(LoginForm, { 
+            onLogin: handleLogin, 
+            error: authError, 
+            loading: authLoading 
+        });
+    }
+
     const stats = calculateStats();
     const filtered = getFilteredTickets();
 
@@ -426,23 +555,49 @@ function App() {
                             h('p', { className: 'text-gray-500 text-sm' }, 'إدارة ومتابعة تذاكر العمل')
                         )
                     ),
-                    h('div', { className: 'flex flex-wrap gap-2' },
-                        h('button', {
-                            onClick: () => { resetForm(); setShowAdd(true); },
-                            className: 'btn-primary text-white px-4 py-2.5 rounded-xl font-semibold transition-all flex items-center gap-2'
-                        }, h(Icon, { name: ICON_NAMES.plus, size: 18 }), 'تذكرة جديدة'),
-                        h('button', {
-                            onClick: () => setShowImport(true),
-                            className: 'bg-gray-100 text-gray-700 px-4 py-2.5 rounded-xl font-semibold hover:bg-gray-200 transition-all flex items-center gap-2'
-                        }, h(Icon, { name: ICON_NAMES.download, size: 18 }), 'استيراد'),
-                        h('button', {
-                            onClick: handleExport,
-                            className: 'bg-gray-100 text-gray-700 px-4 py-2.5 rounded-xl font-semibold hover:bg-gray-200 transition-all flex items-center gap-2'
-                        }, h(Icon, { name: ICON_NAMES.upload, size: 18 }), 'تصدير'),
-                        tickets.length > 0 && h('button', {
-                            onClick: handleDeleteAll,
-                            className: 'bg-red-50 text-red-600 px-4 py-2.5 rounded-xl font-semibold hover:bg-red-100 transition-all flex items-center gap-2'
-                        }, h(Icon, { name: ICON_NAMES.trash, size: 18 }), 'حذف الكل')
+                    // User Info & Actions
+                    h('div', { className: 'flex items-center gap-4' },
+                        // Action Buttons
+                        h('div', { className: 'flex flex-wrap gap-2' },
+                            hasPermission(userRole, PERMISSIONS.TICKET_CREATE) && h('button', {
+                                onClick: () => { resetForm(); setShowAdd(true); },
+                                className: 'btn-primary text-white px-4 py-2.5 rounded-xl font-semibold transition-all flex items-center gap-2'
+                            }, h(Icon, { name: ICON_NAMES.plus, size: 18 }), 'تذكرة جديدة'),
+                            hasPermission(userRole, PERMISSIONS.IMPORT_TICKETS) && h('button', {
+                                onClick: () => setShowImport(true),
+                                className: 'bg-gray-100 text-gray-700 px-4 py-2.5 rounded-xl font-semibold hover:bg-gray-200 transition-all flex items-center gap-2'
+                            }, h(Icon, { name: ICON_NAMES.download, size: 18 }), 'استيراد'),
+                            hasPermission(userRole, PERMISSIONS.EXPORT_TICKETS) && h('button', {
+                                onClick: handleExport,
+                                className: 'bg-gray-100 text-gray-700 px-4 py-2.5 rounded-xl font-semibold hover:bg-gray-200 transition-all flex items-center gap-2'
+                            }, h(Icon, { name: ICON_NAMES.upload, size: 18 }), 'تصدير'),
+                            canDeleteTicket(userRole) && tickets.length > 0 && h('button', {
+                                onClick: handleDeleteAll,
+                                className: 'bg-red-50 text-red-600 px-4 py-2.5 rounded-xl font-semibold hover:bg-red-100 transition-all flex items-center gap-2'
+                            }, h(Icon, { name: ICON_NAMES.trash, size: 18 }), 'حذف الكل')
+                        ),
+                        // User Menu
+                        h('div', { className: 'flex items-center gap-2 border-r pr-4 mr-2' },
+                            canManageUsers(userRole) && h('button', {
+                                onClick: () => setShowUserManagement(true),
+                                className: 'p-2 text-gray-500 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-all',
+                                title: 'إدارة المستخدمين'
+                            }, h(Icon, { name: ICON_NAMES.users, size: 20 })),
+                            h('div', { className: 'flex items-center gap-2' },
+                                h('div', { 
+                                    className: `w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold ${ROLE_COLORS[userRole] || 'bg-gray-500'}` 
+                                }, (userProfile.full_name || userProfile.email || '?').charAt(0).toUpperCase()),
+                                h('div', { className: 'hidden md:block' },
+                                    h('p', { className: 'text-sm font-semibold text-gray-900' }, userProfile.full_name || 'مستخدم'),
+                                    h('p', { className: 'text-xs text-gray-500' }, ROLE_NAMES[userRole] || userRole)
+                                )
+                            ),
+                            h('button', {
+                                onClick: handleLogout,
+                                className: 'p-2 text-gray-500 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all',
+                                title: 'تسجيل الخروج'
+                            }, h(Icon, { name: ICON_NAMES.logOut, size: 20 }))
+                        )
                     )
                 ),
                 h(Statistics, { stats })
@@ -663,6 +818,40 @@ function App() {
                         )
                     )
                 )
+            ),
+
+            // User Management Modal (Admin only)
+            h(Modal, {
+                show: showUserManagement,
+                onClose: () => setShowUserManagement(false),
+                title: '👥 إدارة المستخدمين',
+                size: 'lg'
+            },
+                h(UserManagementPanel, {
+                    users,
+                    roles,
+                    currentUserId: user?.id,
+                    onAddUser: async (formData) => {
+                        await Auth.createUser(formData.email, formData.password, formData.role_id, formData.full_name);
+                        await loadUsers();
+                    },
+                    onEditUser: async (userId, formData) => {
+                        await Auth.updateUserProfile(userId, {
+                            full_name: formData.full_name,
+                            role_id: formData.role_id
+                        });
+                        await loadUsers();
+                    },
+                    onToggleStatus: async (userId, isActive) => {
+                        await Auth.toggleUserStatus(userId, isActive);
+                        await loadUsers();
+                    },
+                    onDeleteUser: async (userId) => {
+                        // Note: Deleting users requires admin API
+                        alert('حذف المستخدمين يتطلب صلاحيات خاصة من Supabase Dashboard');
+                    },
+                    loading: false
+                })
             ),
 
             // Import Modal

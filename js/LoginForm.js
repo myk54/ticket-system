@@ -7,14 +7,14 @@ import { Icon, ICON_NAMES } from './icons.js';
 const { createElement: h, useState } = React;
 
 export const LoginForm = ({ onLogin, error, loading }) => {
-    const [email, setEmail] = useState('');
+    const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        if (email.trim() && password.trim()) {
-            onLogin(email, password);
+        if (username.trim() && password.trim()) {
+            onLogin(username, password);
         }
     };
 
@@ -32,20 +32,20 @@ export const LoginForm = ({ onLogin, error, loading }) => {
             // Login Card
             h('div', { className: 'bg-white/10 backdrop-blur-xl rounded-2xl p-8 shadow-2xl border border-white/20' },
                 h('form', { onSubmit: handleSubmit, className: 'space-y-5' },
-                    // Email
+                    // Username
                     h('div', null,
-                        h('label', { className: 'block text-sm font-medium text-blue-100 mb-2' }, 'البريد الإلكتروني'),
+                        h('label', { className: 'block text-sm font-medium text-blue-100 mb-2' }, 'اسم المستخدم'),
                         h('div', { className: 'relative' },
                             h('span', { className: 'absolute right-3 top-1/2 -translate-y-1/2 text-gray-400' },
                                 h(Icon, { name: 'user', size: 18 })
                             ),
                             h('input', {
-                                type: 'email',
-                                value: email,
-                                onChange: e => setEmail(e.target.value),
-                                placeholder: 'example@company.com',
+                                type: 'text',
+                                value: username,
+                                onChange: e => setUsername(e.target.value),
+                                placeholder: 'أدخل اسم المستخدم',
                                 className: 'w-full pr-10 pl-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 transition-all',
-                                dir: 'ltr',
+                                autoComplete: 'username',
                                 required: true
                             })
                         )
@@ -64,7 +64,7 @@ export const LoginForm = ({ onLogin, error, loading }) => {
                                 onChange: e => setPassword(e.target.value),
                                 placeholder: '••••••••',
                                 className: 'w-full pr-10 pl-12 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 transition-all',
-                                dir: 'ltr',
+                                autoComplete: 'current-password',
                                 required: true
                             }),
                             h('button', {

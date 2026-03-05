@@ -14,7 +14,7 @@ export const UserList = ({ users, currentUserId, onEdit, onToggleStatus, onDelet
     return h('div', { className: 'space-y-3' },
         users.map(user => 
             h('div', { 
-                key: user.user_id, 
+                key: user.id, 
                 className: `glass rounded-xl p-4 border ${user.is_active ? 'border-gray-200' : 'border-red-200 bg-red-50/50'}` 
             },
                 h('div', { className: 'flex items-center justify-between' },
@@ -23,23 +23,23 @@ export const UserList = ({ users, currentUserId, onEdit, onToggleStatus, onDelet
                         h('div', { 
                             className: `w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold text-lg ${ROLE_COLORS[user.roles?.name] || 'bg-gray-500'}` 
                         }, 
-                            (user.full_name || user.email || '?').charAt(0).toUpperCase()
+                            (user.full_name || user.username || '?').charAt(0).toUpperCase()
                         ),
                         // Info
                         h('div', null,
                             h('div', { className: 'flex items-center gap-2' },
                                 h('span', { className: 'font-bold text-gray-900' }, user.full_name || 'بدون اسم'),
                                 !user.is_active && h('span', { className: 'text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full' }, 'معطّل'),
-                                user.user_id === currentUserId && h('span', { className: 'text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full' }, 'أنت')
+                                user.id === currentUserId && h('span', { className: 'text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full' }, 'أنت')
                             ),
-                            h('p', { className: 'text-sm text-gray-500', dir: 'ltr' }, user.email),
+                            h('p', { className: 'text-sm text-gray-500' }, '@' + user.username),
                             h('span', { 
                                 className: `inline-block mt-1 text-xs px-2 py-0.5 rounded-full text-white ${ROLE_COLORS[user.roles?.name] || 'bg-gray-500'}` 
                             }, ROLE_NAMES[user.roles?.name] || user.roles?.name)
                         )
                     ),
                     // Actions
-                    user.user_id !== currentUserId && h('div', { className: 'flex items-center gap-1' },
+                    user.id !== currentUserId && h('div', { className: 'flex items-center gap-1' },
                         h('button', {
                             onClick: () => onEdit(user),
                             className: 'p-2 text-gray-500 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-all',
@@ -67,7 +67,7 @@ export const UserList = ({ users, currentUserId, onEdit, onToggleStatus, onDelet
 // =============================================
 export const UserForm = ({ user, roles, onSave, onCancel, saving }) => {
     const [form, setForm] = useState({
-        email: user?.email || '',
+        username: user?.username || '',
         full_name: user?.full_name || '',
         role_id: user?.role_id || '',
         password: '',
@@ -82,8 +82,11 @@ export const UserForm = ({ user, roles, onSave, onCancel, saving }) => {
         setError('');
 
         // Validation
-        if (!form.email.trim()) {
-            return setError('البريد الإلكتروني مطلوب');
+        if (!form.username.trim()) {
+            return setError('اسم المستخدم مطلوب');
+        }
+        if (!/^[a-zA-Z0-9_]+$/.test(form.username)) {
+            return setError('اسم المستخدم يجب أن يحتوي على حروف إنجليزية وأرقام فقط');
         }
         if (!form.full_name.trim()) {
             return setError('الاسم الكامل مطلوب');
@@ -105,6 +108,20 @@ export const UserForm = ({ user, roles, onSave, onCancel, saving }) => {
     };
 
     return h('form', { onSubmit: handleSubmit, className: 'space-y-4' },
+        // Username
+        h('div', null,
+            h('label', { className: 'block text-sm font-semibold text-gray-700 mb-2' }, 'اسم المستخدم'),
+            h('input', {
+                type: 'text',
+                value: form.username,
+                onChange: e => setForm(p => ({ ...p, username: e.target.value.toLowerCase() })),
+                placeholder: 'username',
+                className: 'w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-blue-500 outline-none',
+                dir: 'ltr',
+                disabled: isEdit
+            })
+        ),
+
         // Full Name
         h('div', null,
             h('label', { className: 'block text-sm font-semibold text-gray-700 mb-2' }, 'الاسم الكامل'),
@@ -114,20 +131,6 @@ export const UserForm = ({ user, roles, onSave, onCancel, saving }) => {
                 onChange: e => setForm(p => ({ ...p, full_name: e.target.value })),
                 placeholder: 'أدخل الاسم الكامل',
                 className: 'w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-blue-500 outline-none'
-            })
-        ),
-
-        // Email
-        h('div', null,
-            h('label', { className: 'block text-sm font-semibold text-gray-700 mb-2' }, 'البريد الإلكتروني'),
-            h('input', {
-                type: 'email',
-                value: form.email,
-                onChange: e => setForm(p => ({ ...p, email: e.target.value })),
-                placeholder: 'example@company.com',
-                className: 'w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-blue-500 outline-none',
-                dir: 'ltr',
-                disabled: isEdit
             })
         ),
 
@@ -146,7 +149,7 @@ export const UserForm = ({ user, roles, onSave, onCancel, saving }) => {
             )
         ),
 
-        // Password (only for new users or optional for edit)
+        // Password
         h('div', { className: 'grid grid-cols-2 gap-4' },
             h('div', null,
                 h('label', { className: 'block text-sm font-semibold text-gray-700 mb-2' }, 
@@ -225,7 +228,7 @@ export const UserManagementPanel = ({ users, roles, currentUserId, onAddUser, on
         setSaving(true);
         try {
             if (editingUser) {
-                await onEditUser(editingUser.user_id, formData);
+                await onEditUser(editingUser.id, formData);
             } else {
                 await onAddUser(formData);
             }
@@ -240,12 +243,12 @@ export const UserManagementPanel = ({ users, roles, currentUserId, onAddUser, on
 
     const handleToggleStatus = async (user) => {
         if (!confirm(user.is_active ? 'تعطيل هذا المستخدم؟' : 'تفعيل هذا المستخدم؟')) return;
-        await onToggleStatus(user.user_id, !user.is_active);
+        await onToggleStatus(user.id, !user.is_active);
     };
 
     const handleDelete = async (user) => {
-        if (!confirm(`حذف المستخدم "${user.full_name || user.email}"؟\nهذا الإجراء لا يمكن التراجع عنه.`)) return;
-        await onDeleteUser(user.user_id);
+        if (!confirm(`حذف المستخدم "${user.full_name || user.username}"؟\nهذا الإجراء لا يمكن التراجع عنه.`)) return;
+        await onDeleteUser(user.id);
     };
 
     if (loading) {

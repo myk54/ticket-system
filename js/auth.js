@@ -1,50 +1,81 @@
 // =============================================
-// Authentication Module
+// Authentication Module - Simple Username/Password
 // =============================================
 
 import { supabase } from './config.js';
+
+// Session storage key
+const SESSION_KEY = 'ticket_system_user';
 
 // =============================================
 // Auth Functions
 // =============================================
 
 /**
- * Sign in with email and password
+ * Sign in with username and password
  */
-export const signIn = async (email, password) => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password
-    });
+export const signIn = async (username, password) => {
+    const { data, error } = await supabase
+        .rpc('login_user', { 
+            input_username: username, 
+            input_password: password 
+        });
     
     if (error) throw error;
-    return data;
+    
+    if (!data || data.length === 0) {
+        throw new Error('اسم المستخدم أو كلمة المرور غير صحيحة');
+    }
+    
+    const user = data[0];
+    
+    if (!user.is_active) {
+        throw new Error('حسابك معطّل. تواصل مع المدير.');
+    }
+    
+    // Save to session
+    const sessionData = {
+        id: user.user_id,
+        username: user.username,
+        full_name: user.full_name,
+        role: user.role_name,
+        role_display: user.role_display
+    };
+    
+    localStorage.setItem(SESSION_KEY, JSON.stringify(sessionData));
+    
+    return { user: sessionData };
 };
 
 /**
  * Sign out current user
  */
 export const signOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) throw error;
+    localStorage.removeItem(SESSION_KEY);
 };
 
 /**
  * Get current session
  */
 export const getSession = async () => {
-    const { data: { session }, error } = await supabase.auth.getSession();
-    if (error) throw error;
-    return session;
+    const stored = localStorage.getItem(SESSION_KEY);
+    if (!stored) return null;
+    
+    try {
+        const user = JSON.parse(stored);
+        return { user };
+    } catch {
+        localStorage.removeItem(SESSION_KEY);
+        return null;
+    }
 };
 
 /**
  * Get current user
  */
 export const getCurrentUser = async () => {
-    const { data: { user }, error } = await supabase.auth.getUser();
-    if (error) throw error;
-    return user;
+    const session = await getSession();
+    return session?.user || null;
 };
 
 /**
@@ -52,9 +83,9 @@ export const getCurrentUser = async () => {
  */
 export const getUserProfile = async (userId) => {
     const { data, error } = await supabase
-        .from('user_profiles')
+        .from('users')
         .select('*, roles(*)')
-        .eq('user_id', userId)
+        .eq('id', userId)
         .single();
     
     if (error) throw error;
@@ -62,12 +93,26 @@ export const getUserProfile = async (userId) => {
 };
 
 /**
- * Listen to auth state changes
+ * Listen to auth state changes (simplified for localStorage)
  */
 export const onAuthStateChange = (callback) => {
-    return supabase.auth.onAuthStateChange((event, session) => {
-        callback(event, session);
-    });
+    // Check session on storage change
+    const handleStorage = (e) => {
+        if (e.key === SESSION_KEY) {
+            const session = e.newValue ? JSON.parse(e.newValue) : null;
+            callback(session ? 'SIGNED_IN' : 'SIGNED_OUT', session);
+        }
+    };
+    
+    window.addEventListener('storage', handleStorage);
+    
+    return {
+        data: {
+            subscription: {
+                unsubscribe: () => window.removeEventListener('storage', handleStorage)
+            }
+        }
+    };
 };
 
 // =============================================
@@ -77,31 +122,30 @@ export const onAuthStateChange = (callback) => {
 /**
  * Create new user (Admin only)
  */
-export const createUser = async (email, password, roleId, fullName) => {
-    // Create auth user
-    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-        email,
-        password,
-        email_confirm: true
-    });
-    
-    if (authError) throw authError;
-    
-    // Create user profile
+export const createUser = async (username, password, roleId, fullName) => {
+    // First hash the password using the database function
     const { data, error } = await supabase
-        .from('user_profiles')
+        .rpc('hash_password', { password });
+    
+    if (error) throw error;
+    
+    const passwordHash = data;
+    
+    // Insert user
+    const { data: userData, error: insertError } = await supabase
+        .from('users')
         .insert([{
-            user_id: authData.user.id,
-            email,
+            username,
+            password_hash: passwordHash,
             full_name: fullName,
             role_id: roleId,
             is_active: true
         }])
-        .select()
+        .select('*, roles(*)')
         .single();
     
-    if (error) throw error;
-    return data;
+    if (insertError) throw insertError;
+    return userData;
 };
 
 /**
@@ -109,12 +153,15 @@ export const createUser = async (email, password, roleId, fullName) => {
  */
 export const getAllUsers = async () => {
     const { data, error } = await supabase
-        .from('user_profiles')
+        .from('users')
         .select('*, roles(*)')
         .order('created_at', { ascending: false });
     
     if (error) throw error;
-    return data;
+    return data.map(u => ({
+        ...u,
+        user_id: u.id // Map for compatibility
+    }));
 };
 
 /**
@@ -122,14 +169,38 @@ export const getAllUsers = async () => {
  */
 export const updateUserProfile = async (userId, updates) => {
     const { data, error } = await supabase
-        .from('user_profiles')
-        .update(updates)
-        .eq('user_id', userId)
-        .select()
+        .from('users')
+        .update({
+            ...updates,
+            updated_at: new Date().toISOString()
+        })
+        .eq('id', userId)
+        .select('*, roles(*)')
         .single();
     
     if (error) throw error;
     return data;
+};
+
+/**
+ * Update user password
+ */
+export const updateUserPassword = async (userId, newPassword) => {
+    // Hash the new password
+    const { data: hash, error: hashError } = await supabase
+        .rpc('hash_password', { password: newPassword });
+    
+    if (hashError) throw hashError;
+    
+    const { error } = await supabase
+        .from('users')
+        .update({ 
+            password_hash: hash,
+            updated_at: new Date().toISOString()
+        })
+        .eq('id', userId);
+    
+    if (error) throw error;
 };
 
 /**
@@ -140,13 +211,25 @@ export const toggleUserStatus = async (userId, isActive) => {
 };
 
 /**
+ * Delete user (Admin only)
+ */
+export const deleteUser = async (userId) => {
+    const { error } = await supabase
+        .from('users')
+        .delete()
+        .eq('id', userId);
+    
+    if (error) throw error;
+};
+
+/**
  * Get all roles
  */
 export const getRoles = async () => {
     const { data, error } = await supabase
         .from('roles')
         .select('*')
-        .order('level', { ascending: true });
+        .order('level', { ascending: false });
     
     if (error) throw error;
     return data;
