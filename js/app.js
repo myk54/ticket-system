@@ -9,6 +9,8 @@ import * as Auth from './auth.js';
 import { TicketForm, TicketCard, Statistics, SearchFilter, Modal, Lightbox, Loading, EmptyState, TicketTableView, ViewModeToggle } from './components.js';
 import { LoginForm } from './LoginForm.js';
 import { UserManagementPanel } from './UserManagement.js';
+import { CommentsList } from './Comments.js';
+import { Dashboard } from './Dashboard.js';
 import { Icon, ICON_NAMES } from './icons.js';
 import { ROLES, ROLE_NAMES, ROLE_COLORS, hasPermission, canViewTicket, canEditTicket, canDeleteTicket, canAssignTicket, canManageUsers, isAdmin, PERMISSIONS, getAllowedTransitions } from './permissions.js';
 
@@ -52,6 +54,17 @@ function App() {
     const [currentPage, setCurrentPage] = useState(1);
     const [pageSize, setPageSize] = useState(25);
 
+    // Comments state
+    const [comments, setComments] = useState([]);
+    const [commentsLoading, setCommentsLoading] = useState(false);
+    const [commentSaving, setCommentSaving] = useState(false);
+
+    // Dashboard state
+    const [showDashboard, setShowDashboard] = useState(false);
+
+    // Processors (for assignment)
+    const [processors, setProcessors] = useState([]);
+
     // Get current user role
     const userRole = userProfile?.roles?.name || null;
 
@@ -75,6 +88,7 @@ function App() {
     useEffect(() => {
         if (user && userProfile) {
             loadTickets();
+            loadProcessors();
             if (isAdmin(userRole)) {
                 loadUsers();
                 loadRoles();
@@ -87,6 +101,13 @@ function App() {
             editRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
     }, [editId]);
+
+    // Load comments when viewing a ticket
+    useEffect(() => {
+        if (viewTicket?.id) {
+            loadComments(viewTicket.id);
+        }
+    }, [viewTicket?.id]);
 
     // =============================================
     // Auth Functions
@@ -161,6 +182,78 @@ function App() {
         }
     }
 
+    async function loadProcessors() {
+        try {
+            const data = await API.getProcessors();
+            setProcessors(data);
+        } catch (e) {
+            console.error('Error loading processors:', e);
+        }
+    }
+
+    // =============================================
+    // Comments Functions
+    // =============================================
+    async function loadComments(ticketId) {
+        setCommentsLoading(true);
+        try {
+            const data = await API.fetchComments(ticketId);
+            setComments(data);
+        } catch (e) {
+            console.error('Error loading comments:', e);
+        } finally {
+            setCommentsLoading(false);
+        }
+    }
+
+    async function handleAddComment(content) {
+        if (!viewTicket || !user) return;
+        setCommentSaving(true);
+        try {
+            const newComment = await API.addComment(viewTicket.id, user.id, content);
+            setComments(prev => [...prev, newComment]);
+        } catch (e) {
+            alert('خطأ في إضافة التعليق: ' + e.message);
+        } finally {
+            setCommentSaving(false);
+        }
+    }
+
+    async function handleDeleteComment(commentId) {
+        if (!confirm('حذف هذا التعليق؟')) return;
+        try {
+            await API.deleteComment(commentId);
+            setComments(prev => prev.filter(c => c.id !== commentId));
+        } catch (e) {
+            alert('خطأ في حذف التعليق: ' + e.message);
+        }
+    }
+
+    // =============================================
+    // Assignment Functions
+    // =============================================
+    async function handleAssignTicket(ticketId, userId) {
+        try {
+            await API.assignTicket(ticketId, userId);
+            await loadTickets();
+            if (viewTicket?.id === ticketId) {
+                const updated = tickets.find(t => t.id === ticketId);
+                if (updated) setViewTicket(updated);
+            }
+        } catch (e) {
+            alert('خطأ في تعيين التذكرة: ' + e.message);
+        }
+    }
+
+    async function handleUnassignTicket(ticketId) {
+        try {
+            await API.unassignTicket(ticketId);
+            await loadTickets();
+        } catch (e) {
+            alert('خطأ في إلغاء التعيين: ' + e.message);
+        }
+    }
+
     // =============================================
     // Helper Functions
     // =============================================
@@ -172,7 +265,8 @@ function App() {
             attachments: [],
             status: 'pending',
             date: formatDate(),
-            tags: []
+            tags: [],
+            assignedTo: ''
         };
     }
 
@@ -259,7 +353,7 @@ function App() {
                 await API.updateTicket(editId, form);
             } else {
                 const { ticketId, ticketNumber } = getNewTicketIdAndNumber();
-                await API.createTicket(form, ticketId, ticketNumber);
+                await API.createTicket(form, ticketId, ticketNumber, user?.id);
             }
             await loadTickets();
             resetForm();
@@ -548,17 +642,21 @@ function App() {
                 h('div', { className: 'flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6' },
                     h('div', { className: 'flex items-center gap-3' },
                         h('div', { className: 'w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg' },
-                            h(Icon, { name: ICON_NAMES.ticket, size: 24, className: 'text-white' })
+                            h(Icon, { name: ICON_NAMES.headset, size: 24, className: 'text-white' })
                         ),
                         h('div', null,
                             h('h1', { className: 'text-2xl font-bold text-gray-900' }, 'نظام إدارة التذاكر'),
-                            h('p', { className: 'text-gray-500 text-sm' }, 'إدارة ومتابعة تذاكر العمل')
+                            h('p', { className: 'text-gray-500 text-sm' }, 'إدارة ومتابعة تذاكر الدعم الفني')
                         )
                     ),
                     // User Info & Actions
                     h('div', { className: 'flex items-center gap-4' },
                         // Action Buttons
                         h('div', { className: 'flex flex-wrap gap-2' },
+                            hasPermission(userRole, PERMISSIONS.REPORT_VIEW) && h('button', {
+                                onClick: () => setShowDashboard(true),
+                                className: 'bg-gradient-to-r from-purple-500 to-purple-600 text-white px-4 py-2.5 rounded-xl font-semibold transition-all flex items-center gap-2 hover:from-purple-600 hover:to-purple-700'
+                            }, h(Icon, { name: ICON_NAMES.barChart, size: 18 }), 'لوحة التحكم'),
                             hasPermission(userRole, PERMISSIONS.TICKET_CREATE) && h('button', {
                                 onClick: () => { resetForm(); setShowAdd(true); },
                                 className: 'btn-primary text-white px-4 py-2.5 rounded-xl font-semibold transition-all flex items-center gap-2'
@@ -586,7 +684,7 @@ function App() {
                             h('div', { className: 'flex items-center gap-2' },
                                 h('div', { 
                                     className: `w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold ${ROLE_COLORS[userRole] || 'bg-gray-500'}` 
-                                }, (userProfile.full_name || userProfile.email || '?').charAt(0).toUpperCase()),
+                                }, (userProfile.full_name || userProfile.username || '?').charAt(0).toUpperCase()),
                                 h('div', { className: 'hidden md:block' },
                                     h('p', { className: 'text-sm font-semibold text-gray-900' }, userProfile.full_name || 'مستخدم'),
                                     h('p', { className: 'text-xs text-gray-500' }, ROLE_NAMES[userRole] || userRole)
@@ -735,89 +833,147 @@ function App() {
                 })
             ),
 
-            // View Modal
+            // View Modal with Comments
             viewTicket && h(Modal, {
                 show: true,
-                onClose: () => setViewTicket(null),
+                onClose: () => { setViewTicket(null); setComments([]); },
                 title: viewTicket.ticketId || `تذكرة #${viewTicket.ticketNumber}`,
-                size: 'lg'
+                size: 'full'
             },
-                h('div', { className: 'space-y-5' },
-                    // Ticket ID Badge
-                    h('div', { className: 'flex items-center gap-3' },
-                        h('span', { 
-                            className: 'bg-gradient-to-r from-blue-500 to-blue-600 text-white px-4 py-2 rounded-xl font-mono text-sm font-bold shadow-lg'
-                        }, viewTicket.ticketId || `#${viewTicket.ticketNumber}`),
-                        h('span', { className: 'text-gray-400 text-sm' }, `تاريخ الإنشاء: ${viewTicket.date || '-'}`)
-                    ),
-                    h('div', null,
-                        h('label', { className: 'flex items-center gap-2 text-sm font-bold text-gray-400 uppercase' },
-                            h(Icon, { name: ICON_NAMES.building, size: 14 }),
-                            'الشركة'
-                        ),
-                        h('p', { className: 'text-xl font-bold text-gray-900 mt-1', dir: detectDirection(viewTicket.name) }, viewTicket.name)
-                    ),
-                    viewTicket.link && h('div', null,
-                        h('label', { className: 'flex items-center gap-2 text-sm font-bold text-gray-400 uppercase' },
-                            h(Icon, { name: ICON_NAMES.link, size: 14 }),
-                            'الرابط'
-                        ),
-                        h('a', { href: viewTicket.link, target: '_blank', className: 'text-blue-600 hover:underline block mt-1 break-all', dir: 'ltr' }, viewTicket.link)
-                    ),
-                    h('div', null,
-                        h('label', { className: 'flex items-center gap-2 text-sm font-bold text-gray-400 uppercase' },
-                            h(Icon, { name: ICON_NAMES.fileText, size: 14 }),
-                            'التفاصيل'
-                        ),
-                        h('div', { className: 'bg-gray-50 rounded-xl p-5 mt-2 border' },
-                            h('p', { className: 'text-gray-700 whitespace-pre-wrap leading-relaxed', dir: detectDirection(viewTicket.details) }, viewTicket.details || 'لا توجد')
-                        )
-                    ),
-                    viewTicket.attachments?.length > 0 && h('div', null,
-                        h('label', { className: 'flex items-center gap-2 text-sm font-bold text-gray-400 uppercase' },
-                            h(Icon, { name: ICON_NAMES.paperclip, size: 14 }),
-                            `المرفقات (${viewTicket.attachments.length})`
-                        ),
-                        h('div', { className: 'grid grid-cols-2 md:grid-cols-3 gap-4 mt-2' },
-                            viewTicket.attachments.map((a, i) =>
-                                h('div', {
-                                    key: i,
-                                    className: 'border rounded-xl overflow-hidden cursor-pointer hover:shadow-lg transition-all',
-                                    onClick: () => isImage(a.name) ? setLightbox(a.url) : window.open(a.url, '_blank')
+                h('div', { className: 'grid grid-cols-1 lg:grid-cols-3 gap-6' },
+                    // Main Content (2 cols)
+                    h('div', { className: 'lg:col-span-2 space-y-5' },
+                        // Ticket ID Badge & Assignment
+                        h('div', { className: 'flex flex-wrap items-center justify-between gap-3' },
+                            h('div', { className: 'flex items-center gap-3' },
+                                h('span', { 
+                                    className: 'bg-gradient-to-r from-blue-500 to-blue-600 text-white px-4 py-2 rounded-xl font-mono text-sm font-bold shadow-lg'
+                                }, viewTicket.ticketId || `#${viewTicket.ticketNumber}`),
+                                h('span', { className: 'text-gray-400 text-sm' }, `تاريخ الإنشاء: ${viewTicket.date || '-'}`)
+                            ),
+                            // Assignment dropdown
+                            canAssignTicket(userRole) && h('div', { className: 'flex items-center gap-2' },
+                                h('label', { className: 'text-sm text-gray-500' }, 'تعيين إلى:'),
+                                h('select', {
+                                    value: viewTicket.assignedTo?.id || '',
+                                    onChange: e => e.target.value ? handleAssignTicket(viewTicket.id, e.target.value) : handleUnassignTicket(viewTicket.id),
+                                    className: 'px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-sm focus:outline-none focus:border-blue-400'
                                 },
-                                    isImage(a.name)
-                                        ? h('img', { src: a.url, className: 'w-full h-32 object-cover' })
-                                        : h('div', { className: 'w-full h-32 bg-gray-100 flex flex-col items-center justify-center' },
-                                            h(Icon, { name: ICON_NAMES.file, size: 32, className: 'text-gray-400' }),
-                                            h('span', { className: 'text-sm text-gray-600 mt-1' }, a.name)
-                                        ),
-                                    h('div', { className: 'p-2 bg-gray-50 text-center border-t' },
-                                        h('span', { className: 'text-xs text-gray-500' }, a.name?.substring(0, 25))
+                                    h('option', { value: '' }, 'غير مُعيّن'),
+                                    processors.map(p => 
+                                        h('option', { key: p.id, value: p.id }, p.full_name || p.username)
                                     )
                                 )
                             )
-                        )
-                    ),
-                    h('div', { className: 'grid grid-cols-2 gap-4 pt-4 border-t' },
+                        ),
+                        
+                        // Assigned To Badge
+                        viewTicket.assignedTo && h('div', { className: 'flex items-center gap-2 bg-blue-50 text-blue-700 px-3 py-2 rounded-lg' },
+                            h(Icon, { name: ICON_NAMES.user, size: 16 }),
+                            h('span', { className: 'text-sm' }, 'مُعيّنة إلى: '),
+                            h('span', { className: 'font-semibold' }, viewTicket.assignedTo.full_name || viewTicket.assignedTo.username)
+                        ),
+
                         h('div', null,
                             h('label', { className: 'flex items-center gap-2 text-sm font-bold text-gray-400 uppercase' },
-                                h(Icon, { name: ICON_NAMES.barChart, size: 14 }),
-                                'الحالة'
+                                h(Icon, { name: ICON_NAMES.building, size: 14 }),
+                                'الشركة'
                             ),
-                            h('span', {
-                                className: `inline-block mt-1 px-4 py-2 rounded-lg font-semibold ${
-                                    viewTicket.status === 'completed' ? 'bg-green-100 text-green-700' :
-                                    viewTicket.status === 'in-progress' ? 'bg-blue-100 text-blue-700' :
-                                    'bg-amber-100 text-amber-700'
-                                }`
-                            }, viewTicket.status === 'completed' ? '✅ مكتمل' : viewTicket.status === 'in-progress' ? '🔄 قيد التنفيذ' : '⏳ قيد الانتظار')
+                            h('p', { className: 'text-xl font-bold text-gray-900 mt-1', dir: detectDirection(viewTicket.name) }, viewTicket.name)
+                        ),
+                        viewTicket.link && h('div', null,
+                            h('label', { className: 'flex items-center gap-2 text-sm font-bold text-gray-400 uppercase' },
+                                h(Icon, { name: ICON_NAMES.link, size: 14 }),
+                                'الرابط'
+                            ),
+                            h('a', { href: viewTicket.link, target: '_blank', className: 'text-blue-600 hover:underline block mt-1 break-all', dir: 'ltr' }, viewTicket.link)
                         ),
                         h('div', null,
-                            h('label', { className: 'text-sm font-bold text-gray-400 uppercase' }, '📅 التاريخ'),
-                            h('p', { className: 'text-xl font-bold text-gray-900 mt-1' }, viewTicket.date)
+                            h('label', { className: 'flex items-center gap-2 text-sm font-bold text-gray-400 uppercase' },
+                                h(Icon, { name: ICON_NAMES.fileText, size: 14 }),
+                                'التفاصيل'
+                            ),
+                            h('div', { className: 'bg-gray-50 rounded-xl p-5 mt-2 border' },
+                                h('p', { className: 'text-gray-700 whitespace-pre-wrap leading-relaxed', dir: detectDirection(viewTicket.details) }, viewTicket.details || 'لا توجد')
+                            )
+                        ),
+                        viewTicket.attachments?.length > 0 && h('div', null,
+                            h('label', { className: 'flex items-center gap-2 text-sm font-bold text-gray-400 uppercase' },
+                                h(Icon, { name: ICON_NAMES.paperclip, size: 14 }),
+                                `المرفقات (${viewTicket.attachments.length})`
+                            ),
+                            h('div', { className: 'grid grid-cols-2 md:grid-cols-3 gap-4 mt-2' },
+                                viewTicket.attachments.map((a, i) =>
+                                    h('div', {
+                                        key: i,
+                                        className: 'border rounded-xl overflow-hidden cursor-pointer hover:shadow-lg transition-all',
+                                        onClick: () => isImage(a.name) ? setLightbox(a.url) : window.open(a.url, '_blank')
+                                    },
+                                        isImage(a.name)
+                                            ? h('img', { src: a.url, className: 'w-full h-32 object-cover' })
+                                            : h('div', { className: 'w-full h-32 bg-gray-100 flex flex-col items-center justify-center' },
+                                                h(Icon, { name: ICON_NAMES.file, size: 32, className: 'text-gray-400' }),
+                                                h('span', { className: 'text-sm text-gray-600 mt-1' }, a.name)
+                                            ),
+                                        h('div', { className: 'p-2 bg-gray-50 text-center border-t' },
+                                            h('span', { className: 'text-xs text-gray-500' }, a.name?.substring(0, 25))
+                                        )
+                                    )
+                                )
+                            )
+                        ),
+                        h('div', { className: 'grid grid-cols-2 gap-4 pt-4 border-t' },
+                            h('div', null,
+                                h('label', { className: 'flex items-center gap-2 text-sm font-bold text-gray-400 uppercase' },
+                                    h(Icon, { name: ICON_NAMES.barChart, size: 14 }),
+                                    'الحالة'
+                                ),
+                                h('span', {
+                                    className: `inline-block mt-1 px-4 py-2 rounded-lg font-semibold ${
+                                        viewTicket.status === 'completed' ? 'bg-green-100 text-green-700' :
+                                        viewTicket.status === 'in-progress' ? 'bg-blue-100 text-blue-700' :
+                                        'bg-amber-100 text-amber-700'
+                                    }`
+                                }, viewTicket.status === 'completed' ? '✅ مكتمل' : viewTicket.status === 'in-progress' ? '🔄 قيد التنفيذ' : '⏳ قيد الانتظار')
+                            ),
+                            h('div', null,
+                                h('label', { className: 'text-sm font-bold text-gray-400 uppercase' }, '📅 التاريخ'),
+                                h('p', { className: 'text-xl font-bold text-gray-900 mt-1' }, viewTicket.date)
+                            )
                         )
+                    ),
+                    
+                    // Comments Sidebar (1 col)
+                    h('div', { className: 'lg:col-span-1 border-t lg:border-t-0 lg:border-r pt-4 lg:pt-0 lg:pr-6' },
+                        h('h3', { className: 'font-bold text-gray-700 mb-4 flex items-center gap-2' },
+                            h(Icon, { name: ICON_NAMES.messageSquare, size: 18 }),
+                            'التعليقات'
+                        ),
+                        h(CommentsList, {
+                            comments,
+                            loading: commentsLoading,
+                            currentUserId: user?.id,
+                            isAdmin: isAdmin(userRole),
+                            onAddComment: handleAddComment,
+                            onDeleteComment: handleDeleteComment,
+                            saving: commentSaving
+                        })
                     )
                 )
+            ),
+
+            // Dashboard Modal
+            h(Modal, {
+                show: showDashboard,
+                onClose: () => setShowDashboard(false),
+                title: '',
+                size: 'full'
+            },
+                h(Dashboard, {
+                    tickets,
+                    users,
+                    onClose: () => setShowDashboard(false)
+                })
             ),
 
             // User Management Modal (Admin only)

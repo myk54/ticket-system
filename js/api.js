@@ -16,33 +16,40 @@ import { generateFileName } from './utils.js';
 export const fetchTickets = async () => {
     const { data, error } = await supabase
         .from('tickets')
-        .select('*')
+        .select(`
+            *,
+            creator:created_by(id, username, full_name),
+            assignee:assigned_to(id, username, full_name)
+        `)
         .order('created_at', { ascending: false });
     
     if (error) throw error;
     
     return data.map(t => ({
         id: t.id,
-        ticketId: t.ticket_id || `TKT-${t.ticket_number || '0000'}`, // Fallback for old tickets
-        ticketNumber: t.ticket_number, // Keep for backward compatibility
+        ticketId: t.ticket_id || `#T${String(t.ticket_number || 0).padStart(4, '0')}`,
+        ticketNumber: t.ticket_number,
         name: t.name,
         link: t.link || '',
         details: t.details,
         attachments: t.attachments || [],
         status: t.status,
         date: t.date,
-        tags: t.tags || []
+        tags: t.tags || [],
+        createdBy: t.creator || null,
+        assignedTo: t.assignee || null
     }));
 };
 
 /**
  * Create a new ticket
  * @param {object} ticketData 
- * @param {string} ticketId - Unique ticket ID (e.g., TKT-20250303-0001)
- * @param {number} ticketNumber - Legacy number for backward compatibility
+ * @param {string} ticketId - Unique ticket ID
+ * @param {number} ticketNumber - Sequential number
+ * @param {string} createdBy - User ID who created the ticket
  * @returns {Promise<object>}
  */
-export const createTicket = async (ticketData, ticketId, ticketNumber) => {
+export const createTicket = async (ticketData, ticketId, ticketNumber, createdBy = null) => {
     const { data, error } = await supabase
         .from('tickets')
         .insert([{
@@ -54,7 +61,9 @@ export const createTicket = async (ticketData, ticketId, ticketNumber) => {
             attachments: ticketData.attachments,
             status: ticketData.status,
             date: ticketData.date,
-            tags: ticketData.tags
+            tags: ticketData.tags,
+            created_by: createdBy,
+            assigned_to: ticketData.assignedTo || null
         }])
         .select()
         .single();
@@ -228,4 +237,156 @@ export const deleteMultipleFiles = async (attachments) => {
             await deleteFile(att.path);
         }
     }
+};
+
+// =============================================
+// Comments Operations
+// =============================================
+
+/**
+ * Fetch comments for a ticket
+ * @param {string} ticketId 
+ * @returns {Promise<Array>}
+ */
+export const fetchComments = async (ticketId) => {
+    const { data, error } = await supabase
+        .from('ticket_comments')
+        .select(`
+            *,
+            user:user_id(id, username, full_name, role_id, roles(name))
+        `)
+        .eq('ticket_id', ticketId)
+        .order('created_at', { ascending: true });
+    
+    if (error) throw error;
+    
+    return data.map(c => ({
+        id: c.id,
+        ticketId: c.ticket_id,
+        content: c.content,
+        createdAt: c.created_at,
+        user: c.user ? {
+            id: c.user.id,
+            username: c.user.username,
+            fullName: c.user.full_name,
+            role: c.user.roles?.name
+        } : null
+    }));
+};
+
+/**
+ * Add a comment to a ticket
+ * @param {string} ticketId 
+ * @param {string} userId 
+ * @param {string} content 
+ * @returns {Promise<object>}
+ */
+export const addComment = async (ticketId, userId, content) => {
+    const { data, error } = await supabase
+        .from('ticket_comments')
+        .insert([{
+            ticket_id: ticketId,
+            user_id: userId,
+            content
+        }])
+        .select(`
+            *,
+            user:user_id(id, username, full_name, role_id, roles(name))
+        `)
+        .single();
+    
+    if (error) throw error;
+    
+    return {
+        id: data.id,
+        ticketId: data.ticket_id,
+        content: data.content,
+        createdAt: data.created_at,
+        user: data.user ? {
+            id: data.user.id,
+            username: data.user.username,
+            fullName: data.user.full_name,
+            role: data.user.roles?.name
+        } : null
+    };
+};
+
+/**
+ * Delete a comment
+ * @param {string} commentId 
+ * @returns {Promise<void>}
+ */
+export const deleteComment = async (commentId) => {
+    const { error } = await supabase
+        .from('ticket_comments')
+        .delete()
+        .eq('id', commentId);
+    
+    if (error) throw error;
+};
+
+// =============================================
+// Assignment Operations
+// =============================================
+
+/**
+ * Assign ticket to a user
+ * @param {string} ticketId 
+ * @param {string} userId 
+ * @returns {Promise<object>}
+ */
+export const assignTicket = async (ticketId, userId) => {
+    const { data, error } = await supabase
+        .from('tickets')
+        .update({ assigned_to: userId })
+        .eq('id', ticketId)
+        .select()
+        .single();
+    
+    if (error) throw error;
+    return data;
+};
+
+/**
+ * Unassign ticket
+ * @param {string} ticketId 
+ * @returns {Promise<object>}
+ */
+export const unassignTicket = async (ticketId) => {
+    const { data, error } = await supabase
+        .from('tickets')
+        .update({ assigned_to: null })
+        .eq('id', ticketId)
+        .select()
+        .single();
+    
+    if (error) throw error;
+    return data;
+};
+
+/**
+ * Get processors (users who can be assigned tickets)
+ * @returns {Promise<Array>}
+ */
+export const getProcessors = async () => {
+    const { data, error } = await supabase
+        .from('users')
+        .select('id, username, full_name, roles(name)')
+        .eq('is_active', true)
+        .in('role_id', 
+            supabase.from('roles').select('id').in('name', ['admin', 'processor'])
+        );
+    
+    // Fallback: get all active users
+    const { data: allUsers, error: allError } = await supabase
+        .from('users')
+        .select('id, username, full_name, role_id, roles(name)')
+        .eq('is_active', true);
+    
+    if (allError) throw allError;
+    
+    // Filter to admin and processor roles
+    return allUsers.filter(u => 
+        u.roles?.name === 'admin' || u.roles?.name === 'processor'
+    );
 };

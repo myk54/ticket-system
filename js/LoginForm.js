@@ -23,7 +23,7 @@ export const LoginForm = ({ onLogin, error, loading }) => {
             // Logo & Title
             h('div', { className: 'text-center mb-8' },
                 h('div', { className: 'inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl shadow-2xl mb-4' },
-                    h(Icon, { name: ICON_NAMES.ticket, size: 40, className: 'text-white' })
+                    h(Icon, { name: ICON_NAMES.headset, size: 40, className: 'text-white' })
                 ),
                 h('h1', { className: 'text-3xl font-bold text-white' }, 'نظام إدارة التذاكر'),
                 h('p', { className: 'text-blue-200 mt-2' }, 'سجّل دخولك للمتابعة')
