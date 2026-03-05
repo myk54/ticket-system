@@ -472,7 +472,10 @@ export const TicketTableView = ({
     currentPage,
     pageSize,
     onPageChange,
-    onPageSizeChange
+    onPageSizeChange,
+    userRole,
+    canChangeStatus = true,
+    canDelete = true
 }) => {
     const totalPages = Math.ceil(tickets.length / pageSize);
     const startIndex = (currentPage - 1) * pageSize;
@@ -499,11 +502,12 @@ export const TicketTableView = ({
     );
     
     return h('div', { className: 'glass rounded-2xl shadow-lg overflow-hidden' },
-        // Bulk Actions Bar
-        selectedIds.length > 0 && h('div', { className: 'bg-blue-50 border-b border-blue-100 px-4 py-3 flex items-center justify-between' },
+        // Bulk Actions Bar (only show if user can change status or delete)
+        selectedIds.length > 0 && (canChangeStatus || canDelete) && h('div', { className: 'bg-blue-50 border-b border-blue-100 px-4 py-3 flex items-center justify-between' },
             h('span', { className: 'text-blue-700 font-medium' }, `تم تحديد ${selectedIds.length} تذكرة`),
             h('div', { className: 'flex gap-2' },
-                h('select', {
+                // Status change dropdown - only for processors/reviewers/admins
+                canChangeStatus && h('select', {
                     onChange: e => e.target.value && onBulkStatusChange(e.target.value),
                     className: 'px-3 py-1.5 rounded-lg border border-blue-200 bg-white text-sm focus:outline-none focus:border-blue-400',
                     defaultValue: ''
@@ -511,7 +515,8 @@ export const TicketTableView = ({
                     h('option', { value: '', disabled: true }, 'تغيير الحالة'),
                     CONFIG.STATUSES.map(s => h('option', { key: s.value, value: s.value }, s.label))
                 ),
-                h('button', {
+                // Delete button - only for admins
+                canDelete && h('button', {
                     onClick: onBulkDelete,
                     className: 'px-3 py-1.5 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600 transition-all flex items-center gap-1'
                 }, h(Icon, { name: ICON_NAMES.trash, size: 14 }), 'حذف المحدد')
@@ -524,7 +529,8 @@ export const TicketTableView = ({
                 // Header
                 h('thead', { className: 'bg-gray-50 border-b border-gray-200' },
                     h('tr', null,
-                        h('th', { className: 'px-4 py-3 w-12' },
+                        // Checkbox column - only show if user has bulk actions
+                        (canChangeStatus || canDelete) && h('th', { className: 'px-4 py-3 w-12' },
                             h('button', {
                                 onClick: () => onSelectAll(paginatedTickets),
                                 className: 'p-1 rounded hover:bg-gray-200 transition-all'
@@ -541,7 +547,6 @@ export const TicketTableView = ({
                         h(SortHeader, { field: 'status', label: 'الحالة' }),
                         h(SortHeader, { field: 'date', label: 'التاريخ' }),
                         h('th', { className: 'px-4 py-3 text-right font-semibold text-gray-600' }, 'التصنيف'),
-                        h('th', { className: 'px-4 py-3 text-right font-semibold text-gray-600' }, 'المرفقات'),
                         h('th', { className: 'px-4 py-3 text-center font-semibold text-gray-600 w-32' }, 'الإجراءات')
                     )
                 ),
@@ -554,8 +559,8 @@ export const TicketTableView = ({
                             key: ticket.id, 
                             className: `hover:bg-gray-50 transition-all ${isSelected ? 'bg-blue-50' : ''}`
                         },
-                            // Checkbox
-                            h('td', { className: 'px-4 py-3' },
+                            // Checkbox - only show if user has bulk actions
+                            (canChangeStatus || canDelete) && h('td', { className: 'px-4 py-3' },
                                 h('button', {
                                     onClick: () => onSelectOne(ticket.id),
                                     className: 'p-1 rounded hover:bg-gray-200 transition-all'
@@ -611,8 +616,6 @@ export const TicketTableView = ({
                                     )
                                     : h('span', { className: 'text-gray-400 text-sm' }, '-')
                             ),
-                            // Attachments
-                            h('td', { className: 'px-4 py-3' },
                                 ticket.attachments?.length > 0 
                                     ? h('span', { className: 'flex items-center gap-1 text-sm text-gray-600' },
                                         h(Icon, { name: ICON_NAMES.paperclip, size: 14 }),

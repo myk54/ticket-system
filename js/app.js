@@ -757,7 +757,10 @@ function App() {
                 currentPage,
                 pageSize,
                 onPageChange: handlePageChange,
-                onPageSizeChange: handlePageSizeChange
+                onPageSizeChange: handlePageSizeChange,
+                userRole,
+                canChangeStatus: hasPermission(userRole, PERMISSIONS.STATUS_ANY) || hasPermission(userRole, PERMISSIONS.STATUS_NEW_TO_PROGRESS),
+                canDelete: canDeleteTicket(userRole)
             }),
 
             // Cards View
