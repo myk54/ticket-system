@@ -72,6 +72,11 @@ const ICON_PATHS = {
     'refresh-cw': 'M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8M21 3v5h-5M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16M3 21v-5h5',
     'check-circle': 'M22 11.08V12a10 10 0 1 1-5.93-9.14M22 4 12 14.01l-3-3',
     'x-circle': 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20ZM15 9l-6 6M9 9l6 6',
+    minus: 'M5 12h14',
+    'arrow-up': 'M12 19V5M5 12l7-7 7 7',
+    'arrow-down': 'M12 5v14M5 12l7 7 7-7',
+    archive: 'M21 8v13H3V8M1 3h22v5H1zM10 12h4',
+    'zap': 'M13 2L3 14h9l-1 8 10-12h-9l1-8z',
     
     // Stats
     'bar-chart-3': 'M3 3v18h18M18 17V9M13 17V5M8 17v-3',
@@ -144,6 +149,12 @@ export const ICON_NAMES = {
     settings: 'settings',
     image: 'image',
     file: 'file',
+    // Priority icons
+    minus: 'minus',
+    arrowUp: 'arrow-up',
+    arrowDown: 'arrow-down',
+    zap: 'zap',
+    archive: 'archive',
     // Auth icons
     user: 'user',
     users: 'users',

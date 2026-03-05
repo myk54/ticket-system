@@ -9,7 +9,37 @@ import { Icon, ICON_NAMES } from './icons.js';
 const { createElement: h } = React;
 
 // =============================================
-// Form Component
+// Priority Badge Component
+// =============================================
+export const PriorityBadge = ({ priority, size = 'md' }) => {
+    const config = CONFIG.PRIORITIES.find(p => p.value === priority) || CONFIG.PRIORITIES[0];
+    const sizeClasses = size === 'sm' ? 'px-2 py-0.5 text-xs' : 'px-3 py-1 text-sm';
+    
+    return h('span', { 
+        className: `inline-flex items-center gap-1 rounded-full font-semibold ${config.bgClass} ${sizeClasses}` 
+    },
+        h(Icon, { name: config.icon, size: size === 'sm' ? 12 : 14 }),
+        config.label
+    );
+};
+
+// =============================================
+// Status Badge Component
+// =============================================
+export const StatusBadge = ({ status, size = 'md' }) => {
+    const config = CONFIG.STATUSES.find(s => s.value === status) || CONFIG.STATUSES[0];
+    const sizeClasses = size === 'sm' ? 'px-2 py-0.5 text-xs' : 'px-3 py-1 text-sm';
+    
+    return h('span', { 
+        className: `inline-flex items-center gap-1 rounded-full font-semibold ${config.bgClass} ${sizeClasses}` 
+    },
+        h(Icon, { name: config.icon, size: size === 'sm' ? 12 : 14 }),
+        config.label
+    );
+};
+
+// =============================================
+// Form Component (for Support - uses Priority)
 // =============================================
 export const TicketForm = ({ 
     form, setForm, onSave, onCancel, saving, uploading, 
@@ -19,101 +49,190 @@ export const TicketForm = ({
     const nameDir = detectDirection(form.name);
     const detailsDir = detectDirection(form.details);
     
-    return h('div', { className: 'space-y-4 animate-in' },
-        // Name
+    return h('div', { className: 'space-y-5 animate-in' },
+        // Name Field
         h('div', null,
             h('label', { className: 'flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2' },
-                h(Icon, { name: ICON_NAMES.building, size: 16, className: 'text-gray-400' }),
-                'اسم الشركة'
+                h(Icon, { name: ICON_NAMES.building, size: 16, className: 'text-blue-500' }),
+                'اسم الشركة / المشروع'
             ),
-            h('input', { type: 'text', value: form.name, onChange: e => setForm(p => ({ ...p, name: e.target.value })), placeholder: 'اسم الشركة أو المشروع...', className: 'w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all', dir: nameDir })
+            h('input', { 
+                type: 'text', 
+                value: form.name, 
+                onChange: e => setForm(p => ({ ...p, name: e.target.value })), 
+                placeholder: 'أدخل اسم الشركة أو المشروع...', 
+                className: 'w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none transition-all', 
+                dir: nameDir 
+            })
         ),
         
-        // Link
+        // Link Field
         h('div', null,
             h('label', { className: 'flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2' },
-                h(Icon, { name: ICON_NAMES.link, size: 16, className: 'text-gray-400' }),
-                'الرابط'
+                h(Icon, { name: ICON_NAMES.link, size: 16, className: 'text-blue-500' }),
+                'الرابط (اختياري)'
             ),
-            h('input', { type: 'url', value: form.link, onChange: e => setForm(p => ({ ...p, link: e.target.value })), placeholder: 'https://...', className: 'w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all', dir: 'ltr' })
+            h('input', { 
+                type: 'url', 
+                value: form.link, 
+                onChange: e => setForm(p => ({ ...p, link: e.target.value })), 
+                placeholder: 'https://example.com', 
+                className: 'w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none transition-all font-mono text-sm', 
+                dir: 'ltr' 
+            })
         ),
         
-        // Details
+        // Details Field
         h('div', null,
             h('label', { className: 'flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2' },
-                h(Icon, { name: ICON_NAMES.fileText, size: 16, className: 'text-gray-400' }),
-                'التفاصيل'
+                h(Icon, { name: ICON_NAMES.fileText, size: 16, className: 'text-blue-500' }),
+                'تفاصيل المشكلة'
             ),
-            h('textarea', { value: form.details, onChange: e => setForm(p => ({ ...p, details: e.target.value })), placeholder: 'تفاصيل التذكرة...', rows: 8, className: 'w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all resize-none scrollbar', dir: detailsDir })
+            h('textarea', { 
+                value: form.details, 
+                onChange: e => setForm(p => ({ ...p, details: e.target.value })), 
+                placeholder: 'اشرح المشكلة بالتفصيل...', 
+                rows: 6, 
+                className: 'w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none transition-all resize-none scrollbar', 
+                dir: detailsDir 
+            })
         ),
         
-        // Status, Date, Tags
-        h('div', { className: 'grid grid-cols-1 md:grid-cols-3 gap-4' },
+        // Priority & Date Row
+        h('div', { className: 'grid grid-cols-1 md:grid-cols-2 gap-4' },
+            // Priority Selection
             h('div', null,
                 h('label', { className: 'flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2' },
-                    h(Icon, { name: ICON_NAMES.barChart, size: 16, className: 'text-gray-400' }),
-                    'الحالة'
+                    h(Icon, { name: ICON_NAMES.zap, size: 16, className: 'text-blue-500' }),
+                    'الأولوية'
                 ),
-                h('select', { value: form.status, onChange: e => setForm(p => ({ ...p, status: e.target.value })), className: 'w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-blue-500 outline-none bg-white' },
-                    CONFIG.STATUSES.map(s => h('option', { key: s.value, value: s.value }, s.label))
+                h('div', { className: 'flex gap-2' },
+                    CONFIG.PRIORITIES.map(p => 
+                        h('button', { 
+                            key: p.value, 
+                            type: 'button', 
+                            onClick: () => setForm(prev => ({ ...prev, priority: p.value })), 
+                            className: `flex-1 px-3 py-3 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 border-2 ${
+                                form.priority === p.value 
+                                    ? `${p.bgClass} ${p.borderClass} shadow-md` 
+                                    : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
+                            }` 
+                        },
+                            h(Icon, { name: p.icon, size: 16 }),
+                            p.label
+                        )
+                    )
                 )
             ),
+            // Date
             h('div', null,
                 h('label', { className: 'flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2' },
-                    h(Icon, { name: ICON_NAMES.calendar, size: 16, className: 'text-gray-400' }),
+                    h(Icon, { name: ICON_NAMES.calendar, size: 16, className: 'text-blue-500' }),
                     'التاريخ'
                 ),
-                h('input', { type: 'date', value: form.date, onChange: e => setForm(p => ({ ...p, date: e.target.value })), className: 'w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-blue-500 outline-none' })
+                h('input', { 
+                    type: 'date', 
+                    value: form.date, 
+                    onChange: e => setForm(p => ({ ...p, date: e.target.value })), 
+                    className: 'w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none transition-all' 
+                })
+            )
+        ),
+        
+        // Tags
+        CONFIG.TAGS.length > 0 && h('div', null,
+            h('label', { className: 'flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2' },
+                h(Icon, { name: ICON_NAMES.tag, size: 16, className: 'text-blue-500' }),
+                'التصنيف'
             ),
-            h('div', null,
-                h('label', { className: 'flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2' },
-                    h(Icon, { name: ICON_NAMES.tag, size: 16, className: 'text-gray-400' }),
-                    'التصنيف'
-                ),
-                h('div', { className: 'flex gap-2 flex-wrap' },
-                    CONFIG.TAGS.map(tag => h('button', { key: tag.id, type: 'button', onClick: () => onToggleTag(tag.id), className: `px-4 py-2 rounded-lg text-sm font-semibold transition-all ${form.tags.includes(tag.id) ? `${tag.color} text-white shadow-lg` : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}` }, tag.name))
+            h('div', { className: 'flex gap-2 flex-wrap' },
+                CONFIG.TAGS.map(tag => 
+                    h('button', { 
+                        key: tag.id, 
+                        type: 'button', 
+                        onClick: () => onToggleTag(tag.id), 
+                        className: `px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+                            form.tags.includes(tag.id) 
+                                ? `${tag.color} text-white shadow-lg scale-105` 
+                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }` 
+                    }, tag.name)
                 )
             )
         ),
         
-        // Files
+        // File Upload
         h('div', null,
             h('label', { className: 'flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2' },
-                h(Icon, { name: ICON_NAMES.paperclip, size: 16, className: 'text-gray-400' }),
+                h(Icon, { name: ICON_NAMES.paperclip, size: 16, className: 'text-blue-500' }),
                 'المرفقات'
             ),
-            h('div', { className: 'border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-blue-400 transition-all cursor-pointer' },
-                h('input', { type: 'file', multiple: true, onChange: onFileUpload, disabled: uploading, className: 'hidden', id: isModal ? 'files-modal' : 'files-inline' }),
+            h('div', { 
+                className: 'border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-blue-400 hover:bg-blue-50/50 transition-all cursor-pointer' 
+            },
+                h('input', { 
+                    type: 'file', 
+                    multiple: true, 
+                    onChange: onFileUpload, 
+                    disabled: uploading, 
+                    className: 'hidden', 
+                    id: isModal ? 'files-modal' : 'files-inline' 
+                }),
                 h('label', { htmlFor: isModal ? 'files-modal' : 'files-inline', className: 'cursor-pointer flex flex-col items-center' },
-                    h('div', { className: 'w-14 h-14 bg-blue-50 rounded-full flex items-center justify-center mb-3' },
-                        h(Icon, { name: uploading ? ICON_NAMES.loader : ICON_NAMES.folderOpen, size: 26, className: uploading ? 'text-blue-500 animate-spin' : 'text-blue-500' })
+                    h('div', { className: 'w-14 h-14 bg-blue-100 rounded-full flex items-center justify-center mb-3' },
+                        h(Icon, { 
+                            name: uploading ? ICON_NAMES.loader : ICON_NAMES.folderOpen, 
+                            size: 26, 
+                            className: uploading ? 'text-blue-500 animate-spin' : 'text-blue-500' 
+                        })
                     ),
-                    h('p', { className: 'text-gray-600 font-medium' }, uploading ? 'جاري الرفع...' : 'اختر الملفات'),
+                    h('p', { className: 'text-gray-700 font-semibold' }, uploading ? 'جاري الرفع...' : 'اختر الملفات'),
                     h('p', { className: 'text-gray-400 text-sm mt-1' }, 'أو اسحب الملفات هنا')
                 )
             ),
+            // Uploaded files preview
             form.attachments.length > 0 && h('div', { className: 'grid grid-cols-4 md:grid-cols-6 gap-3 mt-4' },
-                form.attachments.map((a, i) => h('div', { key: i, className: 'relative group' },
-                    isImage(a.name)
-                        ? h('img', { src: a.url, className: 'w-full h-20 object-cover rounded-lg cursor-pointer hover:opacity-80', onClick: () => setLightbox(a.url) })
-                        : h('div', { className: 'w-full h-20 bg-gray-100 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-gray-200', onClick: () => window.open(a.url, '_blank') },
-                            h(Icon, { name: ICON_NAMES.file, size: 24, className: 'text-gray-400' }),
-                            h('span', { className: 'text-xs text-gray-500 truncate w-full text-center px-1 mt-1' }, truncateText(a.name, 8))
-                        ),
-                    h('button', { onClick: () => onRemoveAttachment(i), className: 'absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:bg-red-600' },
-                        h(Icon, { name: ICON_NAMES.x, size: 14 })
+                form.attachments.map((a, i) => 
+                    h('div', { key: i, className: 'relative group' },
+                        isImage(a.name)
+                            ? h('img', { 
+                                src: a.url, 
+                                className: 'w-full h-20 object-cover rounded-lg cursor-pointer hover:opacity-80 transition-all', 
+                                onClick: () => setLightbox(a.url) 
+                            })
+                            : h('div', { 
+                                className: 'w-full h-20 bg-gray-100 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-gray-200 transition-all', 
+                                onClick: () => window.open(a.url, '_blank') 
+                            },
+                                h(Icon, { name: ICON_NAMES.file, size: 24, className: 'text-gray-400' }),
+                                h('span', { className: 'text-xs text-gray-500 truncate w-full text-center px-1 mt-1' }, truncateText(a.name, 8))
+                            ),
+                        h('button', { 
+                            onClick: () => onRemoveAttachment(i), 
+                            className: 'absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:bg-red-600 shadow-lg' 
+                        },
+                            h(Icon, { name: ICON_NAMES.x, size: 14 })
+                        )
                     )
-                ))
+                )
             )
         ),
         
-        // Buttons
+        // Action Buttons
         h('div', { className: 'flex gap-3 pt-4' },
-            h('button', { onClick: onSave, disabled: saving || uploading, className: 'flex-1 btn-primary text-white px-6 py-3 rounded-xl font-semibold disabled:opacity-50 transition-all flex items-center justify-center gap-2' },
+            h('button', { 
+                onClick: onSave, 
+                disabled: saving || uploading, 
+                className: 'flex-1 btn-primary text-white px-6 py-3.5 rounded-xl font-semibold disabled:opacity-50 transition-all flex items-center justify-center gap-2 shadow-lg hover:shadow-xl' 
+            },
                 h(Icon, { name: saving ? ICON_NAMES.loader : (isEdit ? ICON_NAMES.save : ICON_NAMES.plus), size: 18, className: saving ? 'animate-spin' : '' }),
-                saving ? 'جاري الحفظ...' : (isEdit ? 'حفظ التعديلات' : 'إضافة')
+                saving ? 'جاري الحفظ...' : (isEdit ? 'حفظ التعديلات' : 'رفع التذكرة')
             ),
-            h('button', { onClick: onCancel, disabled: saving, className: 'flex-1 bg-gray-100 text-gray-700 px-6 py-3 rounded-xl font-semibold hover:bg-gray-200 transition-all flex items-center justify-center gap-2' },
+            h('button', { 
+                onClick: onCancel, 
+                disabled: saving, 
+                className: 'flex-1 bg-gray-100 text-gray-700 px-6 py-3.5 rounded-xl font-semibold hover:bg-gray-200 transition-all flex items-center justify-center gap-2' 
+            },
                 h(Icon, { name: ICON_NAMES.x, size: 18 }),
                 'إلغاء'
             )
@@ -228,30 +347,36 @@ export const TicketCard = ({
 // Statistics Component
 // =============================================
 export const Statistics = ({ stats }) => {
-    return h('div', { className: 'grid grid-cols-2 md:grid-cols-4 gap-4' },
-        h('div', { className: 'bg-slate-50 rounded-xl p-4 border border-slate-200' },
+    return h('div', { className: 'grid grid-cols-2 md:grid-cols-5 gap-3' },
+        h('div', { className: 'bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl p-4 border border-slate-200 shadow-sm' },
             h('div', { className: 'flex items-center gap-2 text-slate-500 text-sm mb-1' },
-                h(Icon, { name: ICON_NAMES.barChart, size: 16 }), 'الإجمالي'
+                h(Icon, { name: ICON_NAMES.inbox, size: 16 }), 'الإجمالي'
             ),
-            h('p', { className: 'text-3xl font-bold text-slate-900' }, stats.total)
+            h('p', { className: 'text-3xl font-bold text-slate-800' }, stats.total)
         ),
-        h('div', { className: 'bg-amber-50 rounded-xl p-4 border border-amber-200' },
-            h('div', { className: 'flex items-center gap-2 text-amber-600 text-sm mb-1' },
-                h(Icon, { name: ICON_NAMES.clock, size: 16 }), 'انتظار'
+        h('div', { className: 'bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl p-4 border border-slate-200 shadow-sm' },
+            h('div', { className: 'flex items-center gap-2 text-slate-600 text-sm mb-1' },
+                h(Icon, { name: ICON_NAMES.inbox, size: 16 }), 'جديد'
             ),
-            h('p', { className: 'text-3xl font-bold text-amber-600' }, stats.pending)
+            h('p', { className: 'text-3xl font-bold text-slate-700' }, stats.new || 0)
         ),
-        h('div', { className: 'bg-blue-50 rounded-xl p-4 border border-blue-200' },
+        h('div', { className: 'bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-4 border border-blue-200 shadow-sm' },
             h('div', { className: 'flex items-center gap-2 text-blue-600 text-sm mb-1' },
-                h(Icon, { name: ICON_NAMES.refresh, size: 16 }), 'تنفيذ'
+                h(Icon, { name: ICON_NAMES.refresh, size: 16 }), 'قيد المعالجة'
             ),
-            h('p', { className: 'text-3xl font-bold text-blue-600' }, stats.inProgress)
+            h('p', { className: 'text-3xl font-bold text-blue-600' }, stats.inProgress || 0)
         ),
-        h('div', { className: 'bg-emerald-50 rounded-xl p-4 border border-emerald-200' },
+        h('div', { className: 'bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-xl p-4 border border-emerald-200 shadow-sm' },
             h('div', { className: 'flex items-center gap-2 text-emerald-600 text-sm mb-1' },
-                h(Icon, { name: ICON_NAMES.checkCircle, size: 16 }), 'مكتمل'
+                h(Icon, { name: ICON_NAMES.checkCircle, size: 16 }), 'معتمد'
             ),
-            h('p', { className: 'text-3xl font-bold text-emerald-600' }, stats.completed)
+            h('p', { className: 'text-3xl font-bold text-emerald-600' }, stats.approved || 0)
+        ),
+        h('div', { className: 'bg-gradient-to-br from-red-50 to-red-100 rounded-xl p-4 border border-red-200 shadow-sm' },
+            h('div', { className: 'flex items-center gap-2 text-red-600 text-sm mb-1' },
+                h(Icon, { name: ICON_NAMES.alertCircle, size: 16 }), 'عاجل'
+            ),
+            h('p', { className: 'text-3xl font-bold text-red-600' }, stats.urgent || 0)
         )
     );
 };

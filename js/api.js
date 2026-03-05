@@ -16,11 +16,7 @@ import { generateFileName } from './utils.js';
 export const fetchTickets = async () => {
     const { data, error } = await supabase
         .from('tickets')
-        .select(`
-            *,
-            creator:created_by(id, username, full_name),
-            assignee:assigned_to(id, username, full_name)
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
     
     if (error) throw error;
@@ -33,11 +29,12 @@ export const fetchTickets = async () => {
         link: t.link || '',
         details: t.details,
         attachments: t.attachments || [],
-        status: t.status,
+        status: t.status || 'new',
+        priority: t.priority || 'normal',
         date: t.date,
         tags: t.tags || [],
-        createdBy: t.creator || null,
-        assignedTo: t.assignee || null
+        createdBy: t.created_by || null,
+        assignedTo: t.assigned_to || null
     }));
 };
 
@@ -59,11 +56,12 @@ export const createTicket = async (ticketData, ticketId, ticketNumber, createdBy
             link: ticketData.link,
             details: ticketData.details,
             attachments: ticketData.attachments,
-            status: ticketData.status,
+            status: 'new',
+            priority: ticketData.priority || 'normal',
             date: ticketData.date,
             tags: ticketData.tags,
             created_by: createdBy,
-            assigned_to: ticketData.assignedTo || null
+            assigned_to: null
         }])
         .select()
         .single();

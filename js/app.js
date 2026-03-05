@@ -263,10 +263,9 @@ function App() {
             link: '',
             details: '',
             attachments: [],
-            status: 'pending',
+            priority: 'normal',
             date: formatDate(),
-            tags: [],
-            assignedTo: ''
+            tags: []
         };
     }
 
@@ -277,9 +276,11 @@ function App() {
     function calculateStats() {
         return {
             total: tickets.length,
-            pending: tickets.filter(t => t.status === 'pending').length,
+            new: tickets.filter(t => t.status === 'new').length,
             inProgress: tickets.filter(t => t.status === 'in-progress').length,
-            completed: tickets.filter(t => t.status === 'completed').length
+            resolved: tickets.filter(t => t.status === 'resolved').length,
+            approved: tickets.filter(t => t.status === 'approved').length,
+            urgent: tickets.filter(t => t.priority === 'urgent').length
         };
     }
 
