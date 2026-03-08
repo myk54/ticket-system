@@ -161,7 +161,13 @@ export const extractTelegramText = (messageText) => {
  * @returns {object}
  */
 export const getStatusInfo = (status) => {
-    return CONFIG.STATUSES.find(s => s.value === status) || CONFIG.STATUSES[0];
+    // Map old status values to new ones
+    const statusMap = {
+        'pending': 'new',
+        'completed': 'approved'
+    };
+    const mappedStatus = statusMap[status] || status;
+    return CONFIG.STATUSES.find(s => s.value === mappedStatus) || CONFIG.STATUSES[0];
 };
 
 /**
